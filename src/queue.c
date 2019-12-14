@@ -31,7 +31,7 @@ static void pop_queue(struct queue *q)
 	}
 }
 
-static int front_queue(struct queue *q)
+static token_t front_queue(struct queue *q)
 {
 	if (q->first != (void *)0) {
 		return q->first->value;
@@ -39,7 +39,7 @@ static int front_queue(struct queue *q)
 	assert(0);
 }
 
-static int back_queue(struct queue *q)
+static token_t back_queue(struct queue *q)
 {
 	if (q->last != (void *)0) {
 		return q->last->value;
@@ -68,8 +68,10 @@ void init_queue(struct queue **q)
 
 void clear_queue(queue_t q)
 {
-	while (q->first != (void *)0) {
-		q->pop(q);
+	if (q != (void *)0) {
+		while (q->first != (void *)0) {
+			q->pop(q);
+		}
+		free(q);
 	}
-	free(q);
 }

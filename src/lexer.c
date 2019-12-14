@@ -39,6 +39,7 @@ static void next_number(int c)
 	fseek(source, -1, SEEK_CUR);
 	token_t t;
 	t.type = NUMBER;
+	t.lli_data = lli;
 	gl_queue->push(gl_queue, t);
 }
 
@@ -84,6 +85,22 @@ void next(void)
 			return;
 		case '/':
 			t.type = DIVIDE;
+			gl_queue->push(gl_queue, t);
+			return;
+		case '(':
+			t.type = L_PARA;
+			gl_queue->push(gl_queue, t);
+			return;
+		case ')':
+			t.type = R_PARA;
+			gl_queue->push(gl_queue, t);
+			return;
+		case ';':
+			t.type = SEMI;
+			gl_queue->push(gl_queue, t);
+			return;
+		case -1:
+			t.type = END;
 			gl_queue->push(gl_queue, t);
 			return;
 		default:

@@ -1,7 +1,7 @@
 #ifndef QUEUE_H_
 #define QUEUE_H_
 
-enum token {PLUS, MINUS, MUL, DIVIDE, ASSIGN, NUMBER, NAME};
+enum token {PLUS=0, MINUS, MUL, DIVIDE, ASSIGN, NUMBER, NAME, L_PARA, R_PARA, SEMI, END};
 
 typedef struct {
 	enum token type;
@@ -14,8 +14,8 @@ typedef struct queue {
 	struct queue_node *last;
 	void (*push)(struct queue *q, token_t value);
 	void (*pop)(struct queue *q);
-	int (*front)(struct queue *q);
-	int (*back)(struct queue *q);
+	token_t (*front)(struct queue *q);
+	token_t (*back)(struct queue *q);
 } *queue_t;
 
 struct queue_node {
