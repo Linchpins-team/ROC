@@ -1,9 +1,10 @@
+#include "queue.h"
+
 #include <stdio.h>
 #include <ctype.h>
 
 FILE *source;
-
-enum token {PLUS, MINUS, TIMES, DIVIDE, ASSIGN, NUMBER, NAME};
+queue_t gl_queue;
 
 enum token current_token;
 
@@ -15,7 +16,7 @@ struct identifier {
 	char name[1024];
 } *id_array;
 
-unsigned int hash(const char *s)
+static unsigned int hash(const char *s)
 {
 	unsigned int seed, hash;
 	seed = 131;
@@ -27,18 +28,66 @@ unsigned int hash(const char *s)
 	return hash & 0x7FFFFFFFU;
 }
 
+static void next_number(int c)
+{
+	// DECIMAL INTEGER ONLY
+	long long int lli = c - '0';
+	while (isdigit(c = fgetc(source))) {
+		lli *= 10;
+		lli += c - '0';
+	}
+	fseek(source, -1, SEEK_CUR);
+	token_t t;
+	t.type = NUMBER;
+	gl_queue->push(gl_queue, t);
+}
+
+static void next_id(int c) // NOT YET IMPLEMENTED
+{
+	char name[1024];
+	name[0] = c;
+	for (int i = 1; isalnum(c = fgetc(source)) || c == '_'; ++i) {
+		name[i] = c;
+	}
+	fseek(source, -1, SEEK_CUR); // from stdio.h
+
+	hash(name);
+
+	return;
+}
+
 void next(void)
 {
-	int c = fgetc(source);
-	if (isalpha(c) || c == '_') {
-		char name[1024];
-		name[0] = c;
-		for (int i = 1; isalnum(c = fgetc(source)) || c == '_'; ++i) {
-			name[i] = c;
+	while (1) {
+		int c = fgetc(source);
+		if (isalpha(c) || c == '_') {
+			next_id(c);
+			return;
 		}
-		fseek(source, -1, SEEK_CUR); // from stdio.h
-
-		hash(name);
+		if (isdigit(c)) {
+			next_number(c);
+			return;
+		}
+		token_t t;
+		switch (c) {
+		case '+':
+			t.type = PLUS;
+			gl_queue->push(gl_queue, t);
+			return;
+		case '-':
+			t.type = MINUS;
+			gl_queue->push(gl_queue, t);
+			return;
+		case '*':
+			t.type = MUL;
+			gl_queue->push(gl_queue, t);
+			return;
+		case '/':
+			t.type = DIVIDE;
+			gl_queue->push(gl_queue, t);
+			return;
+		default:
+			break;
+		}
 	}
-	if (isdigit(c)
 }

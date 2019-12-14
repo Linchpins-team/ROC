@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <stdlib.h>
 
-static void push_queue(struct queue *q, int value)
+static void push_queue(struct queue *q, token_t value)
 {
 	struct queue_node *new_node = (struct queue_node *)calloc(1, sizeof(struct queue_node));
 	new_node->prev = (void *)0;
