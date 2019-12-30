@@ -1,105 +1,74 @@
 package rbtree
 
+type RBTree struct {
+	*Tree
+}
+
 type Tree struct {
-	Parent *Tree
 	Left   *Tree
 	Right  *Tree
 	ValueObject
+}
+
+func (tree *RBTree) Insert(value ValueObject) {
+	if tree.Tree == nil {
+		tree.Tree = &Tree{
+			ValueObject: value,
+		}
+	} else {
+		tree.Tree.Insert(value)
+	}
+}
+
+func (tree *RBTree) Delete(key uint64) {
+	tree.Tree.Delete(key, &tree.Tree)
 }
 
 type ValueObject interface {
 	Value() uint64
 }
 
-func New(value ValueObject) *Tree {
-	return &Tree{
-		ValueObject: value,
+func New() *RBTree {
+	return &RBTree{
+		Tree: nil,
 	}
 }
 
-func (tree *Tree) Insert(value ValueObject) {
-	var node **Tree
-	if value.Value() > tree.Value() {
-		node = &tree.Right
-	} else if value.Value() < tree.Value() {
-		node = &tree.Left
-	} else {
+func (tree *Tree) Delete(key uint64, refer **Tree) {
+	if tree == nil {
 		return
 	}
-	if *node == nil {
-		// if node not exist, create a new tree
-		*node = &Tree{
-			Parent:      tree,
-			ValueObject: value,
-		}
+	if key > tree.Value() {
+		tree.Right.Delete(key, &tree.Right)
+	} else if key < tree.Value() {
+		tree.Left.Delete(key, &tree.Left)
 	} else {
-		(*node).Insert(value)
-	}
-}
-
-func (tree *Tree) Delete(value ValueObject) {
-	if (tree == nil) {
-		return
-	}
-	if value.Value() > tree.Value() {
-		tree.Right.Delete(value)
-	} else if value.Value() < tree.Value() {
-		tree.Left.Delete(value)
-	} else {
-		tree.delete()
+		tree.delete(refer)
 	}
 }
 
 // delete this tree
-func (tree *Tree) delete() {
-	var pNode **Tree = tree.getParentNode()
-	if pNode == nil {
-		return
-	}
+func (tree *Tree) delete(refer **Tree) {
 	if tree.Right == nil && tree.Left == nil {
 		// Set parent's left or right node to nil
-		*pNode = nil
+		*refer = nil
 	} else if tree.Right != nil && tree.Left != nil {
 		// Set left node to this position
-		tree.Left.Parent = tree.Parent
-		*pNode = tree.Left
-		tree.Right.Parent = tree.Left
+		*refer = tree.Left
 		rightMost := tree.Left.getRightMost()
 		*rightMost = tree.Right
 	} else if tree.Right != nil && tree.Left == nil {
-		tree.Right.Parent = tree.Parent
-		*pNode = tree.Right
+		*refer = tree.Right
 	} else if tree.Right == nil && tree.Left != nil {
-		tree.Left.Parent = tree.Parent
-		*pNode = tree.Left
+		*refer = tree.Left
 	}
 	// C need to release memory
-}
-
-// get this tree in parent's node
-func (tree *Tree) getParentNode() **Tree {
-	if tree.Parent == nil {
-		return nil
-	}
-	if tree.Parent.Left == tree {
-		return &tree.Parent.Left
-	}
-	return &tree.Parent.Right
 }
 
 func (tree *Tree) getRightMost() **Tree {
 	if tree.Right == nil {
 		return &tree.Right
-	} else {
-		return tree.Right.getParentNode()
 	}
+	return tree.Right.getRightMost()
 }
 
-func (tree *Tree) Search(key uint64) ValueObject {
-	if key < tree.Value() {
-		return tree.Left.Search(key)
-	} else if key > tree.Value() {
-		return tree.Right.Search(key)
-	}
-	return tree.ValueObject
-}
