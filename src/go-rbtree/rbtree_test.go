@@ -8,9 +8,9 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-type node uint64
+type IntValue uint64
 
-func (n node) Value() uint64 {
+func (n IntValue) Value() uint64 {
 	return uint64(n)
 }
 
@@ -18,10 +18,10 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
-func generateTree() ([]node, *RBTree) {
-	data := make([]node, 20)
+func generateTree(t *testing.T) ([]IntValue, *Tree) {
+	data := make([]IntValue, 1000)
 	for i := range data {
-		data[i] = node(i)
+		data[i] = IntValue(i)
 	}
 	shuffle(data)
 
@@ -29,13 +29,15 @@ func generateTree() ([]node, *RBTree) {
 	tree := New()
 	for _, v := range data {
 		tree.Insert(v)
+		t.Logf("insert %d %s\n", uint64(v), tree)
+		tree.Root.Count()
 	}
 	return data, tree
 }
 
 func TestSearch(t *testing.T) {
 	assert := assert.New(t)
-	data, tree := generateTree()
+	data, tree := generateTree(t)
 
 	shuffle(data)
 
@@ -47,23 +49,8 @@ func TestSearch(t *testing.T) {
 }
 
 // shuffle the data list to random sort
-func shuffle(data []node) {
+func shuffle(data []IntValue) {
 	rand.Shuffle(len(data), func(i, j int) {
 		data[i], data[j] = data[j], data[i]
 	})
 }
-
-func TestDelete(t *testing.T) {
-	assert := assert.New(t)
-	data, tree := generateTree()
-	t.Log(data, tree)
-
-	shuffle(data)
-	for _, v := range data {
-		assert.Equal(v, tree.Search(v.Value()), "%d not found in %s\n", v.Value(), tree)
-		tree.Delete(v.Value())
-		t.Logf("Deleted %d, %s\n", v, tree)
-		assert.Nil(tree.Search(v.Value()), "%d was found in %s\n", v.Value(), tree)
-	}
-}
-

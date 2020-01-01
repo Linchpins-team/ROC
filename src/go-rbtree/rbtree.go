@@ -1,74 +1,67 @@
 package rbtree
 
-type RBTree struct {
-	*Tree
+type Tree struct {
+	Root *Node
 }
 
-type Tree struct {
-	Left   *Tree
-	Right  *Tree
+const (
+	RED   bool = false
+	BLACK      = true
+)
+
+type Node struct {
+	Parent *Node
+	Left   *Node
+	Right  *Node
+	Color  bool
+	Root **Node
 	ValueObject
 }
 
-func (tree *RBTree) Insert(value ValueObject) {
-	if tree.Tree == nil {
-		tree.Tree = &Tree{
+func (tree *Tree) Insert(value ValueObject) {
+	if tree.Root == nil {
+		tree.Root = &Node{
+			Color:       BLACK,
 			ValueObject: value,
+			Root: &tree.Root,
 		}
 	} else {
-		tree.Tree.Insert(value)
+		tree.Root.Insert(value)
 	}
 }
 
-func (tree *RBTree) Delete(key uint64) {
-	tree.Tree.Delete(key, &tree.Tree)
+func (tree *Tree) Search(key uint64) ValueObject {
+	return tree.Root.Search(key)
+}
+
+func (tree *Tree) String() string {
+	return tree.Root.String()
 }
 
 type ValueObject interface {
 	Value() uint64
 }
 
-func New() *RBTree {
-	return &RBTree{
-		Tree: nil,
+func New() *Tree {
+	return &Tree{
+		Root: nil,
 	}
 }
 
-func (tree *Tree) Delete(key uint64, refer **Tree) {
-	if tree == nil {
+func (n *Node) Delete() {
+	if n == nil {
 		return
 	}
-	if key > tree.Value() {
-		tree.Right.Delete(key, &tree.Right)
-	} else if key < tree.Value() {
-		tree.Left.Delete(key, &tree.Left)
-	} else {
-		tree.delete(refer)
-	}
+	n.Right.Delete()
+	n.Right = nil
+	n.Left.Delete()
+	n.Left = nil
+	n.ValueObject = nil
 }
 
-// delete this tree
-func (tree *Tree) delete(refer **Tree) {
-	if tree.Right == nil && tree.Left == nil {
-		// Set parent's left or right node to nil
-		*refer = nil
-	} else if tree.Right != nil && tree.Left != nil {
-		// Set left node to this position
-		*refer = tree.Left
-		rightMost := tree.Left.getRightMost()
-		*rightMost = tree.Right
-	} else if tree.Right != nil && tree.Left == nil {
-		*refer = tree.Right
-	} else if tree.Right == nil && tree.Left != nil {
-		*refer = tree.Left
+func (n *Node) getRightMost() **Node {
+	if n.Right == nil {
+		return &n.Right
 	}
-	// C need to release memory
+	return n.Right.getRightMost()
 }
-
-func (tree *Tree) getRightMost() **Tree {
-	if tree.Right == nil {
-		return &tree.Right
-	}
-	return tree.Right.getRightMost()
-}
-

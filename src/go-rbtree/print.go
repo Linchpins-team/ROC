@@ -2,17 +2,20 @@ package rbtree
 
 import "fmt"
 
-func (t *Tree) String() string {
-	if t == nil {
+func (n *Node) String() string {
+	if n == nil {
 		return "()"
 	}
 	s := ""
-	if t.Left != nil {
-		s += t.Left.String() + " "
+	s += fmt.Sprint(n.Value())
+	if n.Color == BLACK {
+		s = "*" + s + "*"
 	}
-	s += fmt.Sprint(t.Value())
-	if t.Right != nil {
-		s += " " + t.Right.String()
+	if n.Left != nil {
+		s = n.Left.String() + " " + s
+	}
+	if n.Right != nil {
+		s += " " + n.Right.String()
 	}
 	return "(" + s + ")"
 }

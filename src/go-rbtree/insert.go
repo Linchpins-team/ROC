@@ -1,32 +1,45 @@
 package rbtree
 
-func (tree *Tree) Insert(value ValueObject) {
-	var node **Tree
-	if value.Value() > tree.Value() {
-		node = &tree.Right
-	} else if value.Value() < tree.Value() {
-		node = &tree.Left
-	} else {
+func (n *Node) Insert(value ValueObject) {
+	child := n.selectChild(value)
+	// if value is self
+	if child == nil {
 		return
 	}
-	if *node == nil {
-		// if node not exist, create a new tree
-		*node = &Tree{
+
+	// if child hasn't created
+	if *child == nil {
+		// if node not exist, create a new node
+		*child = &Node{
+			Parent:      n,
+			Color: RED,
 			ValueObject: value,
+			Root: n.Root,
 		}
+		(*child).case1()
 	} else {
-		(*node).Insert(value)
+		(*child).Insert(value)
 	}
 }
 
-func (tree *Tree) Search(key uint64) ValueObject {
-	if tree == nil {
+func (n *Node) selectChild(value ValueObject) **Node {
+	if value.Value() > n.Value() {
+		return &n.Right
+	} else if value.Value() < n.Value() {
+		return &n.Left
+	} else {
 		return nil
 	}
-	if key < tree.Value() {
-		return tree.Left.Search(key)
-	} else if key > tree.Value() {
-		return tree.Right.Search(key)
+}
+
+func (n *Node) Search(key uint64) ValueObject {
+	if n == nil {
+		return nil
 	}
-	return tree.ValueObject
+	if key < n.Value() {
+		return n.Left.Search(key)
+	} else if key > n.Value() {
+		return n.Right.Search(key)
+	}
+	return n.ValueObject
 }
