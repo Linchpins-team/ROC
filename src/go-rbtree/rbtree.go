@@ -1,7 +1,7 @@
 package rbtree
 
 type Tree struct {
-	Root *Node
+	NIL *Node
 }
 
 const (
@@ -14,28 +14,27 @@ type Node struct {
 	Left   *Node
 	Right  *Node
 	Color  bool
-	Root **Node
 	ValueObject
 }
 
 func (tree *Tree) Insert(value ValueObject) {
-	if tree.Root == nil {
-		tree.Root = &Node{
-			Color:       BLACK,
-			ValueObject: value,
-			Root: &tree.Root,
-		}
-	} else {
-		tree.Root.Insert(value)
-	}
+	tree.NIL.Insert(value, tree)
 }
 
 func (tree *Tree) Search(key uint64) ValueObject {
-	return tree.Root.Search(key)
+	return tree.NIL.Left.Search(key, tree)
 }
 
 func (tree *Tree) String() string {
-	return tree.Root.String()
+	return tree.NIL.Left.String(tree)
+}
+
+func (tree *Tree) Delete() {
+	tree.NIL.Left.Delete(tree)
+}
+
+func (tree *Tree) Check() {
+	tree.NIL.Count(tree)
 }
 
 type ValueObject interface {
@@ -43,18 +42,23 @@ type ValueObject interface {
 }
 
 func New() *Tree {
-	return &Tree{
-		Root: nil,
+	NIL := new(Node)
+	NIL.Left = NIL
+	NIL.Right = NIL
+	NIL.Color = BLACK
+	tree := &Tree{
+		NIL: NIL,
 	}
+	return tree
 }
 
-func (n *Node) Delete() {
-	if n == nil {
+func (n *Node) Delete(tree *Tree) {
+	if n == tree.NIL {
 		return
 	}
-	n.Right.Delete()
+	n.Right.Delete(tree)
 	n.Right = nil
-	n.Left.Delete()
+	n.Left.Delete(tree)
 	n.Left = nil
 	n.ValueObject = nil
 }

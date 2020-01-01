@@ -18,8 +18,12 @@ func init() {
 	rand.Seed(time.Now().UTC().UnixNano())
 }
 
+const (
+	length = 1000
+)
+
 func generateTree(t *testing.T) ([]IntValue, *Tree) {
-	data := make([]IntValue, 1000)
+	data := make([]IntValue, length)
 	for i := range data {
 		data[i] = IntValue(i)
 	}
@@ -30,7 +34,7 @@ func generateTree(t *testing.T) ([]IntValue, *Tree) {
 	for _, v := range data {
 		tree.Insert(v)
 		t.Logf("insert %d %s\n", uint64(v), tree)
-		tree.Root.Count()
+		tree.Check()
 	}
 	return data, tree
 }
@@ -45,6 +49,7 @@ func TestSearch(t *testing.T) {
 	for _, v := range data {
 		assert.Equal(v, tree.Search(v.Value()))
 	}
+	assert.Equal(nil, tree.Search(uint64(length)))
 	t.Log(tree.String())
 }
 
