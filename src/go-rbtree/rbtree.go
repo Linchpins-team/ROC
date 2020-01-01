@@ -26,7 +26,7 @@ func (tree *Tree) Search(key uint64) ValueObject {
 }
 
 func (tree *Tree) String() string {
-	return tree.NIL.Left.String(tree)
+	return tree.NIL.Left.Work(tree.NIL).String()
 }
 
 func (tree *Tree) Delete() {
@@ -34,7 +34,7 @@ func (tree *Tree) Delete() {
 }
 
 func (tree *Tree) Check() {
-	tree.NIL.Count(tree)
+	tree.NIL.Left.Work(tree.NIL).Count()
 }
 
 type ValueObject interface {

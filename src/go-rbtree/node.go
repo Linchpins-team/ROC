@@ -4,69 +4,114 @@ import (
 	"fmt"
 )
 
-func (n *Node) grandparent(tree *Tree) *Node {
+type workNode struct {
+	NIL *Node
+	*Node
+}
+
+func (n workNode) parent() workNode {
+	return workNode{
+		NIL: n.NIL,
+		Node: n.Parent,
+	}
+}
+
+func (n workNode) grandparent() workNode {
 	if n.Parent == nil {
-		return nil
+		return workNode{
+			NIL: n.NIL,
+			Node: nil,
+		}
 	}
-	return n.Parent.Parent
+	return workNode{
+		NIL: n.NIL,
+		Node: n.Parent.Parent,
+	}
 }
 
-func (n *Node) uncle(tree *Tree) *Node {
-	gp := n.grandparent(tree)
+func (n workNode) uncle() (w workNode) {
+	gp := n.grandparent()
+	w = workNode{
+		NIL: n.NIL,
+	}
 	if n.Parent == gp.Left {
-		return gp.Right
+		w.Node = gp.Right
+		return
 	}
-	return gp.Left
+	w.Node = gp.Left
+	return w
 }
 
-func (n *Node) case1(tree *Tree) {
-	if n.Parent == tree.NIL {
+func (n workNode) case1() {
+	if n.parent().isNil() {
 		n.Color = BLACK
 		return
 	}
-	n.case2(tree)
+	n.case2()
 }
 
-func (n *Node) case2(tree *Tree) {
+func (n workNode) case2() {
 	if n.Parent.Color == BLACK {
 		return
 	}
-	n.case3(tree)
+	n.case3()
 }
 
-func (n *Node) case3(tree *Tree) {
-	if n.uncle(tree) != tree.NIL && n.uncle(tree).Color == RED {
+func (n workNode) case3() {
+	uncle := n.uncle()
+	gr := n.grandparent()
+	if !uncle.isNil() && uncle.Color == RED {
 		n.Parent.Color = BLACK
-		n.uncle(tree).Color = BLACK
-		n.grandparent(tree).Color = RED
-		n.grandparent(tree).case1(tree)
+		uncle.Color = BLACK
+		gr.Color = RED
+		gr.case1()
 		return
 	}
-	n.case4(tree)
+	n.case4()
 }
 
-func (n *Node) case4(tree *Tree) {
-	if n == n.Parent.Right && n.Parent == n.grandparent(tree).Left {
-		n.rotateLeft(tree)
-		n = n.Left
-	} else if n == n.Parent.Left && n.Parent == n.grandparent(tree).Right {
-		n.rotateRight(tree)
-		n = n.Right
+func (n workNode) isNil() bool {
+	return n.Node == n.NIL
+}
+
+func (n workNode) case4() {
+	p := n.Parent
+	g := p.Parent
+	if n.Node == p.Right && p == g.Left {
+		n.rotateLeft()
+		n = n.left()
+	} else if n.Node == p.Left && p == g.Right {
+		n.rotateRight()
+		n = n.right()
 	}
-	n.case5(tree)
+	n.case5()
 }
 
-func (n *Node) rotateLeft(tree *Tree) {
+func (n workNode) left() workNode {
+	return workNode{
+		NIL: n.NIL,
+		Node: n.Left,
+	}
+}
+
+func (n workNode) right() workNode {
+	return workNode{
+		NIL: n.NIL,
+		Node: n.Right,
+	}
+}
+
+func (n workNode) rotateLeft() {
 	p := n.Parent
 	g := p.Parent
 	y := n.Left
 
 	n.Parent = g
-	g.chChild(p, n)
+	g.chChild(p, n.Node)
 
-	p.Parent = n
+	p.Parent = n.Node
 	p.Right = y
-	if y != tree.NIL {
+	if y != n.NIL {
 		y.Parent = p
 	}
 	n.Left = p
@@ -80,47 +125,57 @@ func (n *Node) chChild(a, b *Node) {
 	}
 }
 
-func (n *Node) rotateRight(tree *Tree) {
+func (n workNode) rotateRight() {
 	p := n.Parent
 	g := p.Parent
 	y := n.Right
 
 	n.Parent = g
-	g.chChild(p, n)
+	g.chChild(p, n.Node)
 
-	p.Parent = n
+	p.Parent = n.Node
 	p.Left = y
-	if y != tree.NIL {
+	if y != n.NIL {
 		y.Parent = p
 	}
 	n.Right = p
 }
 
-func (n *Node) case5(tree *Tree) {
-	n.Parent.Color = BLACK
-	n.grandparent(tree).Color = RED
-	if n.Parent == n.grandparent(tree).Left {
-		n.Parent.rotateRight(tree)
+func (n workNode) case5() {
+	p := n.parent()
+	g := n.grandparent()
+	p.Color = BLACK
+	
+	g.Color = RED
+	if p.Node == g.Left {
+		p.rotateRight()
 	} else {
-		n.Parent.rotateLeft(tree)
+		p.rotateLeft()
 	}
 }
 
-func (n *Node) Count(tree *Tree) int {
+func (n workNode) Count() int {
 	// if n is a leaf
-	if n == tree.NIL {
+	if n.Node == n.NIL {
 		return 1
 	}
 	// get node's right and left count
-	r := n.Right.Count(tree)
-	l := n.Left.Count(tree)
+	r := n.right().Count()
+	l := n.left().Count()
 	if r != l {
 		// Panic because it doesn't the same
-		err := fmt.Errorf("Not a rbtree %s:%d %s:%d", n.Left.String(tree), l, n.Right.String(tree), r)
+		err := fmt.Errorf("Not a rbtree %s:%d %s:%d", n.Left.Work(n.NIL).String(), l, n.Right.Work(n.NIL).String(), r)
 		panic(err)
 	}
 	if n.Color == BLACK {
 		r++
 	}
 	return r
+}
+
+func (n *Node) Work(NIL *Node) workNode {
+	return workNode{
+		NIL: NIL,
+		Node: n,
+	}
 }

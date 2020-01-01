@@ -16,7 +16,8 @@ func (n *Node) Insert(value ValueObject, tree *Tree) {
 			Color:       RED,
 			ValueObject: value,
 		}
-		(*child).case1(tree)
+		w := (*child).Work(tree.NIL)
+		w.case1()
 	} else {
 		(*child).Insert(value, tree)
 	}

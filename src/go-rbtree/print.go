@@ -2,8 +2,8 @@ package rbtree
 
 import "fmt"
 
-func (n *Node) String(tree *Tree) string {
-	if n == tree.NIL {
+func (n workNode) String() string {
+	if n.Node == n.NIL {
 		return ""
 	}
 	s := ""
@@ -11,11 +11,11 @@ func (n *Node) String(tree *Tree) string {
 	if n.Color == BLACK {
 		s = "*" + s + "*"
 	}
-	if n.Left != tree.NIL {
-		s = n.Left.String(tree) + " " + s
+	if n.Left != n.NIL {
+		s = n.left().String() + " " + s
 	}
-	if n.Right != tree.NIL {
-		s += " " + n.Right.String(tree)
+	if n.Right != n.NIL {
+		s += " " + n.right().String()
 	}
 	return "(" + s + ")"
 }
