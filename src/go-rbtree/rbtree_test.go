@@ -22,7 +22,7 @@ const (
 	length = 1000
 )
 
-func generateTree(t *testing.T) ([]IntValue, *Tree) {
+func generateTree(t *testing.T) ([]IntValue, Tree) {
 	data := make([]IntValue, length)
 	for i := range data {
 		data[i] = IntValue(i)
@@ -33,7 +33,7 @@ func generateTree(t *testing.T) ([]IntValue, *Tree) {
 	tree := New()
 	for _, v := range data {
 		tree.Insert(v)
-		t.Logf("insert %d %s\n", uint64(v), tree)
+		//t.Logf("insert %d %s\n", uint64(v), tree)
 		tree.Check()
 	}
 	return data, tree

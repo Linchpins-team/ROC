@@ -1,51 +1,49 @@
 package rbtree
 
-func (n *Node) Insert(value ValueObject, tree *Tree) {
-	child := n.selectChild(value, tree)
+func (n workNode) Insert(value ValueObject) {
+	child := n.selectChild(value)
 	// if value is self
 	if child == nil {
 		return
 	}
 	// if child hasn't created
-	if *child == tree.NIL {
+	if *child == nil {
 		// if node not exist, create a new node
 		*child = &Node{
-			Parent:      n,
-			Left:        tree.NIL,
-			Right:       tree.NIL,
+			Parent:      n.Node,
 			Color:       RED,
 			ValueObject: value,
 		}
-		w := (*child).Work(tree.NIL)
+		w := (*child).Work(n.NIL)
 		w.case1()
 	} else {
-		(*child).Insert(value, tree)
+		(*child).Work(n.NIL).Insert(value)
 	}
 }
 
-func (n *Node) selectChild(value ValueObject, tree *Tree) **Node {
-	// if n is root's parent
-	if n == tree.NIL {
+func (n workNode) selectChild(value ValueObject) **Node {
+	// if n is root's parent, always select left
+	if n.Node == n.NIL {
 		return &n.Left
 	}
 	if value.Value() > n.Value() {
 		return &n.Right
-	} else if value.Value() < n.Value() {
-		return &n.Left
-	} else {
-		return nil
 	}
+	if value.Value() < n.Value() {
+		return &n.Left
+	}
+	return nil
 }
 
-func (n *Node) Search(key uint64, tree *Tree) ValueObject {
-	if n == tree.NIL {
+func (n workNode) Search(key uint64) ValueObject {
+	if n.Node == nil {
 		return nil
 	}
 	if key < n.Value() {
-		return n.Left.Search(key, tree)
+		return n.left().Search(key)
 	}
 	if key > n.Value() {
-		return n.Right.Search(key, tree)
+		return n.right().Search(key)
 	}
 	return n.ValueObject
 }

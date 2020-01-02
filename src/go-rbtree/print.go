@@ -3,7 +3,7 @@ package rbtree
 import "fmt"
 
 func (n workNode) String() string {
-	if n.Node == n.NIL {
+	if n.Node == nil {
 		return ""
 	}
 	s := ""
@@ -11,10 +11,10 @@ func (n workNode) String() string {
 	if n.Color == BLACK {
 		s = "*" + s + "*"
 	}
-	if n.Left != n.NIL {
+	if n.Left != nil {
 		s = n.left().String() + " " + s
 	}
-	if n.Right != n.NIL {
+	if n.Right != nil {
 		s += " " + n.right().String()
 	}
 	return "(" + s + ")"
