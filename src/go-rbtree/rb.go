@@ -18,7 +18,7 @@ func (n workNode) case2() {
 func (n workNode) case3() {
 	uncle := n.uncle()
 	g := n.grandparent()
-	if !uncle.isNil() && uncle.Color == RED {
+	if uncle.Node != nil && uncle.Color == RED {
 		n.Parent.Color = BLACK
 		uncle.Color = BLACK
 		g.Color = RED

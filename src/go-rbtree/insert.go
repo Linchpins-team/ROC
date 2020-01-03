@@ -36,7 +36,7 @@ func (n workNode) selectChild(value ValueObject) **Node {
 }
 
 func (n workNode) Search(key uint64) ValueObject {
-	if n.Node == nil {
+	if n.Node == nil || n.ValueObject == nil {
 		return nil
 	}
 	if key < n.Value() {

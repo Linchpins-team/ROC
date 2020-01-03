@@ -38,10 +38,6 @@ func (n workNode) uncle() (w workNode) {
 	return w
 }
 
-func (n workNode) isNil() bool {
-	return n.Node == nil
-}
-
 func (n workNode) left() workNode {
 	return workNode{
 		NIL:  n.NIL,

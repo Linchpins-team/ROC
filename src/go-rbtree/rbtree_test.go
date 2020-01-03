@@ -39,8 +39,10 @@ func generateTree(t *testing.T) ([]IntValue, Tree) {
 	return data, tree
 }
 
-func TestSearch(t *testing.T) {
+func TestRBTree(t *testing.T) {
 	assert := assert.New(t)
+
+	// Test Insert
 	data, tree := generateTree(t)
 
 	shuffle(data)
@@ -49,8 +51,15 @@ func TestSearch(t *testing.T) {
 	for _, v := range data {
 		assert.Equal(v, tree.Search(v.Value()))
 	}
-	assert.Equal(nil, tree.Search(uint64(length)))
+	assert.Nil(tree.Search(uint64(length)))
 	t.Log(tree.String())
+
+	// Test Delete
+	shuffle(data)
+	tree.Delete()
+	for _, v := range data {
+		assert.Nil(tree.Search(v.Value()))
+	}
 }
 
 // shuffle the data list to random sort
