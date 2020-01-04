@@ -6,6 +6,9 @@ import (
 
 func (n workNode) Count() int {
 	// if n is a leaf
+	if n.Node == n.NIL {
+		return n.left().Count()
+	}
 	if n.Node == nil {
 		return 1
 	}
@@ -21,11 +24,4 @@ func (n workNode) Count() int {
 		r++
 	}
 	return r
-}
-
-func (n *Node) Work(NIL *Node) workNode {
-	return workNode{
-		NIL:  NIL,
-		Node: n,
-	}
 }

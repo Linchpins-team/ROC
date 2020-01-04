@@ -1,8 +1,10 @@
 package rbtree
 
-type workNode struct {
-	NIL *Node
-	*Node
+func work(n, NIL *Node) workNode {
+	return workNode{
+		NIL:  NIL,
+		Node: n,
+	}
 }
 
 func (n workNode) parent() workNode {
@@ -14,15 +16,9 @@ func (n workNode) parent() workNode {
 
 func (n workNode) grandparent() workNode {
 	if n.Parent == nil {
-		return workNode{
-			NIL:  n.NIL,
-			Node: nil,
-		}
+		work(nil, n.NIL)
 	}
-	return workNode{
-		NIL:  n.NIL,
-		Node: n.Parent.Parent,
-	}
+	return work(n.Parent.Parent, n.NIL)
 }
 
 func (n workNode) uncle() (w workNode) {
@@ -39,15 +35,13 @@ func (n workNode) uncle() (w workNode) {
 }
 
 func (n workNode) left() workNode {
-	return workNode{
-		NIL:  n.NIL,
-		Node: n.Left,
-	}
+	return work(n.Left, n.NIL)
 }
 
 func (n workNode) right() workNode {
-	return workNode{
-		NIL:  n.NIL,
-		Node: n.Right,
-	}
+	return work(n.Right, n.NIL)
+}
+
+func (n workNode) isNil() bool {
+	return n.Node == n.NIL
 }

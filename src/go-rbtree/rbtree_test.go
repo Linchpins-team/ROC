@@ -34,7 +34,7 @@ func generateTree(t *testing.T) ([]IntValue, Tree) {
 	for _, v := range data {
 		tree.Insert(v)
 		//t.Logf("insert %d %s\n", uint64(v), tree)
-		tree.Check()
+		//tree.Count()
 	}
 	return data, tree
 }
@@ -53,6 +53,7 @@ func TestRBTree(t *testing.T) {
 	}
 	assert.Nil(tree.Search(uint64(length)))
 	t.Log(tree.String())
+	t.Logf("tree depth: %d\n", tree.Count())
 
 	// Test Delete
 	shuffle(data)
