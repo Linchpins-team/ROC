@@ -2,9 +2,9 @@
 #include<stdlib.h>
 #include "node.h"
 
-void insert(w_node n, value v)
+void insert(node *n, node *nil, value v)
 {
-	node **child = select_child(n, v);
+	node **child = select_child(n, nil, v);
 	if (child == NULL) {
 		// itself
 		return;
@@ -12,31 +12,39 @@ void insert(w_node n, value v)
 	if (*child == NULL) {
 		// child hasn't created
 		node* c = (node *) malloc(sizeof(node));
-		c->parent = n.node;
+		c->parent = n;
 		c->color = RED;
-		c->value = v;
+		c->value = &v;
 		*child = c;
-		case1(work(c, n.nil));
+		//case1(c, nil);
 	} else {
-		insert(work(*child, n.nil), v);
+		insert(*child, nil, v);
 	}
 }
 
-node** select_child(w_node n, value v) 
+node** select_child(node *n, node *nil, value v) 
 {
-	if (n.node == n.nil || v < *n.node->value) {
-		return &n.node->left;
+	if (n == nil || v < *n->value) {
+		return &n->left;
 	}
-	if (v > *n.node->value) {
-		return &n.node->right;
+	if (v > *n->value) {
+		return &n->right;
 	}
 	return NULL;
 }
 
-w_node work(node *n, node *nil)
+void delete(node *n) 
 {
-	w_node w;
-	w.nil = nil;
-	w.node = n;
-	return w;
+	if (n == NULL) {
+		return;
+	}
+	delete(n->left);
+	free(n->left);
+	n->left = NULL;
+
+	delete(n->right);
+	free(n->right);
+	n->right = NULL;
+
+	n->value = NULL;
 }

@@ -3,22 +3,22 @@
 
 typedef unsigned int value;
 
-typedef struct {
-	node *parent;
-	node *left;
-	node *right;
+typedef struct node_t {
+	struct node_t *parent;
+	struct node_t *left;
+	struct node_t *right;
 	int color;
 	value *value;
 } node;
 
-typedef struct {
-	node *nil;
-	node *node;
-} w_node;
+void insert(node*, node*, value);
 
-void insert(w_node, value);
+node** select_child(node*, node*, value);
 
-node** select_child(w_node, value);
+void delete(node*);
 
-w_node work(node*, node*);
-
+void case1(node*, node*);
+void case2(node*);
+void case3(node*);
+void case4(node*);
+void case5(node*);
