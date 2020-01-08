@@ -2,19 +2,25 @@
 #include<stdlib.h>
 #include "node.h"
 
-void insert(node *n, node *nil, value v)
+node_t new_tree()
 {
-	node **child = select_child(n, nil, v);
+	node_t nil = (node_t) malloc(sizeof(struct node));
+	return nil;
+}
+
+void insert(node_t n, node_t nil, value v)
+{
+	node_t *child = select_child(n, nil, v);
 	if (child == NULL) {
 		// itself
 		return;
 	}
 	if (*child == NULL) {
 		// child hasn't created
-		node* c = (node *) malloc(sizeof(node));
+		node_t c = (node_t) malloc(sizeof(struct node));
 		c->parent = n;
 		c->color = RED;
-		c->value = &v;
+		c->value = v;
 		*child = c;
 		//case1(c, nil);
 	} else {
@@ -22,18 +28,18 @@ void insert(node *n, node *nil, value v)
 	}
 }
 
-node** select_child(node *n, node *nil, value v) 
+node_t* select_child(node_t n, node_t nil, value v) 
 {
-	if (n == nil || v < *n->value) {
+	if (n == nil || *v < *n->value) {
 		return &n->left;
 	}
-	if (v > *n->value) {
+	if (*v > *n->value) {
 		return &n->right;
 	}
 	return NULL;
 }
 
-void delete(node *n) 
+void delete(node_t n) 
 {
 	if (n == NULL) {
 		return;
@@ -47,4 +53,31 @@ void delete(node *n)
 	n->right = NULL;
 
 	n->value = NULL;
+}
+
+value search(node_t n, unsigned int key) 
+{
+	if (n == NULL) {
+		return NULL;
+	}
+	// if n is NIL
+	if (n->parent == NULL || key < *n->value) {
+		return search(n->left, key);
+	}
+	if (key > *n->value) {
+		return search(n->right, key);
+	}
+	return n->value;
+}
+
+void print_tree(node_t n) 
+{
+	if (n == NULL) {
+		return;
+	}
+	printf("( ");
+	print_tree(n->left);
+	printf(" %d ", *n->value);
+	print_tree(n->right);
+	printf(" )");
 }

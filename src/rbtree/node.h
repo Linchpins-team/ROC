@@ -1,24 +1,28 @@
 #define RED 0
 #define BLACK 1
 
-typedef unsigned int value;
+typedef unsigned int * value;
 
-typedef struct node_t {
-	struct node_t *parent;
-	struct node_t *left;
-	struct node_t *right;
+typedef struct node {
+	struct node *parent;
+	struct node *left;
+	struct node *right;
 	int color;
-	value *value;
-} node;
+	value value;
+} *node_t;
 
-void insert(node*, node*, value);
+node_t new_tree();
 
-node** select_child(node*, node*, value);
+void insert(node_t, node_t, value);
 
-void delete(node*);
+node_t* select_child(node_t, node_t, value);
 
-void case1(node*, node*);
-void case2(node*);
-void case3(node*);
-void case4(node*);
-void case5(node*);
+void delete(node_t);
+
+void case1(node_t, node_t);
+void case2(node_t);
+void case3(node_t);
+void case4(node_t);
+void case5(node_t);
+
+void print_tree(node_t);

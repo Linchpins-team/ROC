@@ -9,3 +9,7 @@ arth: arthmetic.o lexer.o queue.o rbtree/node.o
 	${CC} ${CFLAGS} -c $^ -o $@
 clean:
 	rm -rf *.o arth
+
+test: rbtree/node.c rbtree/test.c
+	${CC} ${CFLAGS} $^ -o $@
+	./$@
