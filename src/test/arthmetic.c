@@ -132,6 +132,7 @@ int main(int argc, char *argv[])
 		puts("Cannot open this file");
 		return 1;
 	}
+
 	init_queue(&gl_queue);
 	signal(SIGINT, signal_clean_up);
 	atexit(clean_up);
