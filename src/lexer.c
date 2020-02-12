@@ -50,8 +50,8 @@ static void next_name(int c)
 {
 	token_t t;
 	t.str[0] = c;
-	int i;
-	for (int i = 1; (isalnum(c = fgetc(source)) || c == '_') && i < sizeof(t.str) - 1; ++i) {
+	size_t i;
+	for (i = 1; (isalnum(c = fgetc(source)) || c == '_') && i < sizeof(t.str) - 1; ++i) {
 		t.str[i] = c;
 	}
 	t.str[i] = '\0';
@@ -291,6 +291,10 @@ static int next_op(int c)
 		return 0;
 	case ',':
 		t.type = COMMA;
+		gl_queue->push(gl_queue, t);
+		return 0;
+	case '\"':
+		t.type = DQUOTE;
 		gl_queue->push(gl_queue, t);
 		return 0;
 	case -1:
