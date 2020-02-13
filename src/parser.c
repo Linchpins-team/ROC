@@ -79,6 +79,131 @@
 	PRIM = IDENTIFIER | CONSTANT | STR_LIT | '(' EXPR ')'
 */
 
+/* DECLARATION
+	DECLARATION = DECL_SPECI INIT_DECL_LIST
+	DECL_SPECI = [STORAGE_CLASS_SPECI TYPE_SPECI TYPE_QUALIFIER] DECL_SPECI(opt)
+	INIT_DECL_LIST = INIT_DECL | INIT_DECL_LIST ',' INIT_DECL
+	INIT_DECL = DECL | DECL = INITALIZER
+
+	STORAGE_CLASS_SPECI = [TYPEDEF EXTERN STATIC AUTO REGISTER]
+	TYPE_SPECI = [void char short int long float double signed
+			unsigned STRUCT_UNION_SPECI ENUM_SPECI TYPEDEF_NAME]
+
+	STRUCT_UNION_SPECI = [struct union] ID(opt) { struct-declaration-list } |
+				[struct union] ID
+	struct-declaration-list = struct-declaration | struct-declaration-list struct declaration
+	struct-declaration = specifier-qualifier-list struct-declarator-list ';'
+	specifier-qualifier-list = [type-specifier type-qualifier] specifier-qualifier-list(opt)
+	struct-declarator-list = struct-declarator | struct-declarator-list ',' struct-declarator
+	struct-declarator = declarator | declarator(opt) : constant expression
+
+	enum-specifier = enum identifier | enum identifier(opt) '{' enumerator-list '}'
+
+	enumerator-list = enumerator | enumerator-list ',' enumerator
+
+	enumerator = enumeration-constant | enumeration-constant '=' constant-expression
+
+	TYPE_QUALIFIER = [const volatile]
+
+	DECL = pointer(opt) direct-declarator
+	direct-declarator = identifer | '(' declarator ')' |
+			direct-declarator '[' constant-expression ']' |
+			direct-declarator '(' parameter-type-list ')' |
+			direct-declarator '(' identifier-list ')' |
+	pointer = '*' type-qualifier(opt) | '*' type-qualifier(opt) pointer
+	parameter-type-list = parameter-list | parameter-list ', ...';
+	parameter-list = parameter-declaration | parameter-list ',' parameter-declaration
+	parameter-declaration = declaration-specifiers declaration |
+				declaration-specifiers abstract-declarator(opt)
+	identifier-list = identifier | identifier-list ',' identifier
+
+	typename = specifier-qualifier-list abstract-declarator(opt)
+	abstract-declarator = pointer | pointer(opt) direct-abstract-declarator
+	direct-abstract-declarator = '(' abstract-declarator ')' |
+					direct-abstract-declarator '[' constant-expression(opt) ']'
+					direct-abstract-declarator '(' parameter-type-list(opt) ')'
+
+	typedef-name = identifier
+
+	initializer = assignment-expression | '{' inintializer-list '}' | '{' initializer-list ',' '}'
+	initializer-list = initializer | initializer-list ',' initializer
+*/
+
+/* DECLARATION (NO RR)
+	DECLARATION = DECL_SPECI INIT_DECL_LIST
+	DECL_SPECI = [STORAGE_CLASS_SPECI TYPE_SPECI TYPE_QUALIFIER] DECL_SPECI(opt)
+
+	INIT_DECL_LIST_REST = ',' INIT_DECL INIT_DECL_LIST_REST | NIL
+	INIT_DECL_LIST = INIT_DECL INIT_DECL_LIST_REST
+
+	INIT_DECL = DECL | DECL = INITALIZER
+
+	STORAGE_CLASS_SPECI = [TYPEDEF EXTERN STATIC AUTO REGISTER]
+
+	TYPE_SPECI = [void char short int long float double signed
+			unsigned STRUCT_UNION_SPECI ENUM_SPECI TYPEDEF_NAME]
+
+	STRUCT_UNION_SPECI = [struct union] ID(opt) { struct-declaration-list } |
+				[struct union] ID
+
+	struct-declaration-list-rest = struct-declaration struct-declaration-list-rest | NIL
+	struct-declaration-list = struct-declaration struct-declaration-list-rest
+
+	struct-declaration = specifier-qualifier-list struct-declarator-list ';'
+
+	specifier-qualifier-list = [type-specifier type-qualifier] specifier-qualifier-list(opt)
+
+	struct-declarator-list-rest = ',' struct-declarator struct-declarator-list-rest | NIL
+	struct-declarator-list = struct-declarator struct-declarator-list-rest
+
+	struct-declarator = declarator | declarator(opt) : constant expression
+
+	enum-specifier = enum identifier | enum identifier(opt) '{' enumerator-list '}'
+
+	enumerator-list-rest = ',' enumerator enumerator-list-rest | NIL
+	enumerator-list = enumerator enumerator-list
+
+	enumerator = enumeration-constant | enumeration-constant '=' constant-expression
+
+	TYPE_QUALIFIER = [const volatile]
+
+	DECL = pointer(opt) direct-declarator
+
+	direct-declarator-rest = '[' constant-expression ']' direct-declarator-rest |
+				'(' parameter-type-list ')' direct-declarator-rest |
+				'(' identifier-list ')' direct-declarator-rest |
+				NIL
+	direct-declarator = identifier direct-declarator-rest | '(' declarator ')' direct-declarator-rest
+
+	pointer = '*' type-qualifier(opt) | '*' type-qualifier(opt) pointer
+
+	parameter-type-list = parameter-list | parameter-list ', ...';
+
+	parameter-list-rest = ',' parameter-declaration parameter-list-rest | NIL
+	parameter-list = parameter-declaration parameter-list-rest
+
+	parameter-declaration = declaration-specifiers declaration |
+				declaration-specifiers abstract-declarator(opt)
+
+	identifier-list-rest = ',' identifier identifier-list-rest | NIL
+	identifier-list = identifier identifier-list-rest
+
+	typename = specifier-qualifier-list abstract-declarator(opt)
+	abstract-declarator = pointer | pointer(opt) direct-abstract-declarator
+
+
+	direct-abstract-declarator-rest = '[' constant-expression(opt) ']' direct-abstract-declarator-rest |
+					'(' parameter-type-list(opt) ']' direct-abstract-declarator-rest |
+					NIL
+	direct-abstract-declarator = '(' abstract-declarator ')' direct-abstract-declarator-rest
+
+	typedef-name = identifier
+
+	initializer = assignment-expression | '{' inintializer-list '}' | '{' initializer-list ',' '}'
+	initializer-list-rest = ',' initializer initalizer-list-rest | NIL
+	initializer-list = initializer initializer-list-rest
+*/
+
 // return 1 when error occurs
 static int match_and_pop(enum token c)
 {
