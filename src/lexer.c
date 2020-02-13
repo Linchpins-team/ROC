@@ -475,6 +475,14 @@ static int next_op(int c)
 		t.type = R_BRACK;
 		gl_queue->push(gl_queue, t);
 		return 0;
+	case '{':
+		t.type = L_CURLY;
+		gl_queue->push(gl_queue, t);
+		return 0;
+	case '}':
+		t.type = R_CURLY;
+		gl_queue->push(gl_queue, t);
+		return 0;
 	case '.':
 		t.type = MEMBER;
 		gl_queue->push(gl_queue, t);

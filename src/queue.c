@@ -47,6 +47,30 @@ static token_t back_queue(struct queue *q)
 	assert(0);
 }
 
+static token_t back_queue_count(struct queue *q, unsigned long count)
+{
+	struct queue_node *it = q->last;
+	for (unsigned long i = 0; i < count; ++i ) {
+		if (it == (void *)0) {
+			assert(0);
+		} else {
+			it = it->prev;
+		}
+	}
+	if (it != (void *)0) {
+		return it->value;
+	}
+	assert(0);
+}
+
+static int empty(struct queue *q)
+{
+	if (q->last == (void *)0) {
+		return 1;
+	}
+	return 0;
+}
+
 void init_queue(struct queue **q)
 {
 	if (q == (void *)0) {
@@ -64,6 +88,8 @@ void init_queue(struct queue **q)
 	(*q)->pop = pop_queue;
 	(*q)->front = front_queue;
 	(*q)->back = back_queue;
+	(*q)->empty = empty;
+	(*q)->back_count = back_queue_count;
 }
 
 void clear_queue(queue_t q)
