@@ -130,7 +130,7 @@
 */
 
 /* DECLARATION (NO RR)
-	DECLARATION = DECL_SPECI INIT_DECL_LIST(opt)
+	DECLARATION = DECL_SPECI INIT_DECL_LIST(opt) ';'
 	DECL_SPECI = [STORAGE_CLASS_SPECI TYPE_SPECI TYPE_QUALIFIER] DECL_SPECI(opt)
 
 	INIT_DECL_LIST_REST = ',' INIT_DECL INIT_DECL_LIST_REST | NIL
@@ -202,6 +202,39 @@
 	initializer = assignment-expression | '{' inintializer-list '}' | '{' initializer-list ',' '}'
 	initializer-list-rest = ',' initializer initalizer-list-rest | NIL
 	initializer-list = initializer initializer-list-rest
+*/
+
+/* STATEMENT
+	STATEMENT = LABELED_STATEMENT | COMPOUND_STATEMENT |
+		EXPRESSION_STATEMENT | SELECTION_STATEMENT |
+		ITERATION_STATEMENT | JUMP_STATEMENT
+
+	LABELED_S = ID ':' STATEMENT | case CONST_EXPR ':' STATEMENT | default ':' STATEMENT
+
+	COMPOUND_STATEMENT = '{' DECLARATION_LIST(opt) STATEMENT_LIST(opt) '}'
+
+
+	// DECLARATION_LIST = DECLARATION | DECLARATION_LIST DECLARATION
+	//
+	DECLARATION_LIST_REST = DECLARATION DECLARATION_LIST_REST | NIL
+	DECLARATION_LIST = DECLARATION DECLARATION_LIST_REST
+
+	// STATEMENT_LIST = STATEMENT | STATEMENT_LIST STATEMENT
+	//
+	STATEMENT_LIST_REST = STATEMENT STATEMENT_LIST_REST | NIL
+	STATEMENT_LIST = STATEMENT STATEMENT_LIST_REST
+
+	EXPRESSION_STATEMENT = EXPRESSION(opt) ';'
+
+	SELECTION_STATEMENT = if '(' EXPRESSION ')' STATEMENT |
+				if '(' EXPRESSION ')' STATEMENT else STATEMENT |
+				switch '(' EXPRESSION ')' STATEMENT
+
+	ITERATION_STATEMENT = while '(' EXPRESSION ')' STATEMENT |
+				do STATEMENT while '(' EXPRESSION ')' ';' |
+				for '(' EXPRESSION(opt) ';' EXPRESSION(opt) ';' EXPRESSION(opt) ')' STATEMENT
+
+	JUMP_STATEMENT = goto identifier ';' | continue ';' | break ';' | return EXPRESSION(opt) ';'
 */
 
 // return 1 when error occurs
@@ -1345,17 +1378,245 @@ static ast_t *declaration(void)
 	default:
 		break;
 	}
+	match_and_pop(SEMI);
 	return node;
 }
 
 /******************************************************
  *
- *
  * DECLARATION END
  *
+ * STATEMENT START
  *
  ******************************************************/
-static ast_t *expr_stat(void)
+static ast_t *goto_jump(void)
+{
+	ast_t *node = new_node(AS_JUMP_GOTO, NULL);
+	match_and_pop(K_GOTO);
+	add_son(node, identifier());
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *continue_jump(void)
+{
+	ast_t *node = new_node(AS_JUMP_CONTINUE, NULL);
+	match_and_pop(K_CONTINUE);
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *break_jump(void)
+{
+	ast_t *node = new_node(AS_JUMP_BREAK, NULL);
+	match_and_pop(K_BREAK);
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *return_jump(void)
+{
+	ast_t *node = new_node(AS_JUMP_RETURN, NULL);
+	match_and_pop(K_RETURN);
+	if (gl_queue->back(gl_queue).type != SEMI) {
+		add_son(node, expr());
+	}
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *statement(void);
+static ast_t *while_iter(void)
+{
+	ast_t *node = new_node(AS_WHILE, NULL);
+	match_and_pop(K_WHILE);
+	match_and_pop(L_PARA);
+	add_son(node, expr());
+	match_and_pop(R_PARA);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *do_while_iter(void)
+{
+	ast_t *node = new_node(AS_DO_WHILE, NULL);
+	match_and_pop(K_DO);
+	add_son(node, statement());
+	match_and_pop(K_WHILE);
+	match_and_pop(L_PARA);
+	add_son(node, expr());
+	match_and_pop(R_PARA);
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *for_iter(void)
+{
+	ast_t *node = new_node(AS_FOR, NULL);
+	match_and_pop(K_FOR);
+	match_and_pop(L_PARA);
+	if (gl_queue->back(gl_queue).type != SEMI) {
+		add_son(node, expr());
+	}
+	match_and_pop(SEMI);
+	if (gl_queue->back(gl_queue).type != SEMI) {
+		add_son(node, expr());
+	}
+	match_and_pop(SEMI);
+	if (gl_queue->back(gl_queue).type != SEMI) {
+		add_son(node, expr());
+	}
+	match_and_pop(R_PARA);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *if_select(void)
+{
+	ast_t *node = new_node(AS_IF, NULL);
+	match_and_pop(K_IF);
+	match_and_pop(L_PARA);
+	add_son(node, expr());
+	match_and_pop(R_PARA);
+	add_son(node, statement());
+	if (gl_queue->back(gl_queue).type == K_ELSE) {
+		match_and_pop(K_ELSE);
+		add_son(node, statement());
+	}
+	return node;
+}
+
+static ast_t *switch_select(void)
+{
+	ast_t *node = new_node(AS_SWITCH, NULL);
+	match_and_pop(K_SWITCH);
+	match_and_pop(L_PARA);
+	add_son(node, expr());
+	match_and_pop(R_PARA);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *declaration_list_rest(ast_t *dd)
+{
+	ast_t *node = new_node(AS_DECLARATION_LIST, NULL);
+	add_son(node, dd);
+	switch (gl_queue->back(gl_queue).type) {
+	case K_TYPEDEF:
+	case K_EXTERN:
+	case K_STATIC:
+	case K_AUTO:
+	case K_REGISTER:
+	case K_VOID:
+	case K_CHAR:
+	case K_SHORT:
+	case K_INT:
+	case K_LONG:
+	case K_FLOAT:
+	case K_DOUBLE:
+	case K_SIGNED:
+	case K_UNSIGNED:
+	case K_STRUCT:
+	case K_UNION:
+	case K_ENUM:
+	/* case ID: FIXME ID ( typedef name ) is not allowed*/
+	/* next is declaration */
+		add_son(node, declaration());
+		return declaration_list_rest(node);
+	default:
+		return node;
+	}
+}
+
+static ast_t *declaration_list(void)
+{
+	return declaration_list_rest(declaration());
+}
+
+static ast_t *statement_list_rest(ast_t *ss)
+{
+	ast_t *node = new_node(AS_STATEMENT_LIST, NULL);
+	add_son(node, ss);
+	switch (gl_queue->back(gl_queue).type) {
+	case R_CURLY:
+		return node;
+	default:
+		return statement_list_rest(add_son(node, statement()));
+	}
+}
+
+static ast_t *statement_list(void)
+{
+	return statement_list_rest(statement());
+}
+
+static ast_t *compound(void)
+{
+	ast_t *node = new_node(AS_COMPOUND, NULL);
+	match_and_pop(L_CURLY);
+	/* DECLARATION : DECLARATION SPECIFIER */
+	switch (gl_queue->back(gl_queue).type) {
+	case K_TYPEDEF:
+	case K_EXTERN:
+	case K_STATIC:
+	case K_AUTO:
+	case K_REGISTER:
+	case K_VOID:
+	case K_CHAR:
+	case K_SHORT:
+	case K_INT:
+	case K_LONG:
+	case K_FLOAT:
+	case K_DOUBLE:
+	case K_SIGNED:
+	case K_UNSIGNED:
+	case K_STRUCT:
+	case K_UNION:
+	case K_ENUM:
+	/* case ID: FIXME ID ( typedef name ) is not allowed*/
+		add_son(node, declaration_list());
+		break;
+	default:
+		break;
+	}
+
+	if (gl_queue->back(gl_queue).type != R_CURLY) {
+		add_son(node, statement_list());
+	}
+	match_and_pop(R_CURLY);
+	return node;
+}
+
+static ast_t *case_label(void)
+{
+	ast_t *node = new_node(AS_LABEL_CASE, NULL);
+	match_and_pop(K_CASE);
+	add_son(node, const_expr());
+	match_and_pop(COLON);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *default_label(void)
+{
+	ast_t *node = new_node(AS_LABEL_DEFAULT, NULL);
+	match_and_pop(K_DEFAULT);
+	add_son(node, const_expr());
+	match_and_pop(COLON);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *id_label(void)
+{
+	ast_t *node = new_node(AS_LABEL_ID, NULL);
+	add_son(node, identifier());
+	match_and_pop(COLON);
+	add_son(node, statement());
+	return node;
+}
+
+static ast_t *expr_state(void)
 {
 	ast_t *node;
 	switch (gl_queue->back(gl_queue).type) {
@@ -1367,6 +1628,54 @@ static ast_t *expr_stat(void)
 		node = expr();
 		match_and_pop(SEMI);
 		return node;
+	}
+}
+
+static ast_t *statement(void)
+{
+	ast_t *node = new_node(AS_STATE, NULL);
+	switch (gl_queue->back(gl_queue).type) {
+	case K_CASE:
+		return add_son(node, case_label());
+	case K_DEFAULT:
+		return add_son(node, default_label());
+
+	/* COMPOUND_STATEMENT */
+	case L_CURLY:
+		return add_son(node, compound());
+
+	/* SELECTION_STATEMENT */
+	case K_IF:
+		return add_son(node, if_select());
+	case K_SWITCH:
+		return add_son(node, switch_select());
+
+	/* ITERATION_STATEMENT */
+	case K_WHILE:
+		return add_son(node, while_iter());
+	case K_DO:
+		return add_son(node, do_while_iter());
+	case K_FOR:
+		return add_son(node, for_iter());
+
+	/* JUMP STATEMENT */
+	case K_GOTO:
+		return add_son(node, goto_jump());
+	case K_CONTINUE:
+		return add_son(node, continue_jump());
+	case K_BREAK:
+		return add_son(node, break_jump());
+	case K_RETURN:
+		return add_son(node, return_jump());
+
+	case ID:
+		next();
+		if (gl_queue->back_count(gl_queue, 1).type == COLON) {
+			return add_son(node, id_label());
+		}
+		/* ELSE FALL THROUGH */
+	default:
+		return add_son(node, expr_state());
 	}
 }
 
@@ -1406,7 +1715,7 @@ int main(int argc, char *argv[])
 	atexit(clean_up);
 	next();
 	while (gl_queue->back(gl_queue).type != END) {
-		ast_t *res = declaration();
+		ast_t *res = statement();
 		print_ast(res);
 		remove_ast(res);
 	}
