@@ -1,5 +1,4 @@
 #include "ast.h"
-#include "aalloc.h"
 
 #include <assert.h>
 #include <stdlib.h>
@@ -8,7 +7,7 @@
 
 ast_t *new_node(enum asttype type, ast_t *parent)
 {
-	ast_t *ptr = (ast_t *)acalloc(1, sizeof(ast_t));
+	ast_t *ptr = (ast_t *)calloc(1, sizeof(ast_t));
 	if (ptr == NULL) {
 		return NULL;
 	}
@@ -191,7 +190,15 @@ static void __print_all(ast_t *parent, size_t s)
 	}
 }
 
-void print_all(ast_t *parent)
+void print_ast(ast_t *parent)
 {
 	__print_all(parent, 0);
+}
+
+void remove_ast(ast_t *parent)
+{
+	for (size_t i = 0; i < parent->son_count; ++i) {
+		remove_ast(parent->son_array[i]);
+	}
+	free(parent);
 }

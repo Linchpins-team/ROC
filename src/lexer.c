@@ -46,6 +46,200 @@ static void next_number(int c)
 	gl_queue->push(gl_queue, t);
 }
 
+static void get_keyword(token_t *const t)
+{
+	switch (t->str[0]) {
+	case 'a':
+		if (!strcmp("auto", t->str)) {
+			t->type = K_AUTO;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'b':
+		if (!strcmp("break", t->str)) {
+			t->type = K_BREAK;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'c':
+		switch (t->str[1]) {
+		case 'a':
+			if (!strcmp("case", t->str)) {
+				t->type = K_CASE;
+				return;
+			}
+			t->type = ID;
+			return;
+		case 'h':
+			if (!strcmp("char", t->str)) {
+				t->type = K_CHAR;
+				return;
+			}
+			t->type = ID;
+			return;
+		case 'o':
+			if (!strcmp("continue", t->str)) {
+				t->type = K_CONTINUE;
+				return;
+			} else if (!strcmp("const", t->str)) {
+				t->type = K_CONST;
+				return;
+			}
+			t->type = ID;
+			return;
+		default:
+			t->type = ID;
+			return;
+		}
+	case 'd':
+		if (!strcmp("double", t->str)) {
+			t->type = K_DOUBLE;
+			return;
+		} else if (!strcmp("do", t->str)) {
+			t->type = K_DO;
+			return;
+		} else if (!strcmp("default", t->str)) {
+			t->type = K_DEFAULT;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'e':
+		if (!strcmp("else", t->str)) {
+			t->type = K_ELSE;
+			return;
+		} else if (!strcmp("enum", t->str)) {
+			t->type = K_ENUM;
+			return;
+		} else if (!strcmp("extern", t->str)) {
+			t->type = K_EXTERN;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'f':
+		if (!strcmp("float", t->str)) {
+			t->type = K_FLOAT;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'g':
+		if (!strcmp("goto", t->str)) {
+			t->type = K_GOTO;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'i':
+		if (!strcmp("if", t->str)) {
+			t->type = K_IF;
+			return;
+		} else if (!strcmp("int", t->str)) {
+			t->type = K_INT;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'l':
+		if (!strcmp("long", t->str)) {
+			t->type = K_LONG;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'r':
+		if (!strcmp("register", t->str)) {
+			t->type = K_REGISTER;
+			return;
+		} else if (!strcmp("return", t->str)) {
+			t->type = K_RETURN;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 's':
+		switch (t->str[1]) {
+		case 'h':
+			if (!strcmp("short", t->str)) {
+				t->type = K_SHORT;
+				return;
+			}
+			t->type = ID;
+			return;
+		case 'i':
+			if (!strcmp("signed", t->str)) {
+				t->type = K_SIGNED;
+				return;
+			} else if (!strcmp("sizeof", t->str)) {
+				t->type = SIZEOF;
+				return;
+			}
+			t->type = ID;
+			return;
+		case 't':
+			if (!strcmp("static", t->str)) {
+				t->type = K_STATIC;
+				return;
+			} else if (!strcmp("struct", t->str)) {
+				t->type = K_STRUCT;
+				return;
+			}
+			t->type = ID;
+			return;
+		case 'w':
+			if (!strcmp("switch", t->str)) {
+				t->type = K_SWITCH;
+				return;
+			}
+			t->type = ID;
+			return;
+		default:
+			t->type = ID;
+			return;
+		}
+	case 't':
+		if (!strcmp("typedef", t->str)) {
+			t->type = K_TYPEDEF;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'u':
+		if (!strcmp("union", t->str)) {
+			t->type = K_UNION;
+			return;
+		} else if (!strcmp("unsigned", t->str)) {
+			t->type = K_UNSIGNED;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'v':
+		if (!strcmp("void", t->str)) {
+			t->type = K_VOID;
+			return;
+		} else if (!strcmp("volatile", t->str)) {
+			t->type = K_VOLATILE;
+			return;
+		}
+		t->type = ID;
+		return;
+	case 'w':
+		if (!strcmp("while", t->str)) {
+			t->type = K_WHILE;
+			return;
+		}
+		t->type = ID;
+		return;
+	default:
+		t->type = ID;
+		return;
+	}
+}
+
 static void next_name(int c)
 {
 	token_t t;
@@ -58,11 +252,7 @@ static void next_name(int c)
 	fseek(source, -1, SEEK_CUR); // from stdio.h
 
 	/* check whether this is identifier */
-	if (!strcmp("sizeof", t.str)) {
-		t.type = SIZEOF;
-	} else {
-		t.type = ID;
-	}
+	get_keyword(&t);
 
 	gl_queue->push(gl_queue, t);
 }

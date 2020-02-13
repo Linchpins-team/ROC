@@ -5,7 +5,7 @@ CFLAGS=-Wall -Wpedantic -Wextra -ggdb
 all: parse
 arth: arthmetic.o lexer.o queue.o
 	${CC} ${CFLAGS} $^ -o $@
-parse: parser.o lexer.o queue.o ast.o aalloc.o
+parse: parser.o lexer.o queue.o ast.o
 	${CC} ${CFLAGS} $^ -o $@
 %.o: %.c
 	${CC} ${CFLAGS} -c $^ -o $@

@@ -37,6 +37,9 @@ ast_t *new_node(enum asttype type, ast_t *parent);
 /* Return: the pointer to parent */
 ast_t *add_son(ast_t *restrict parent, ast_t *restrict son);
 
-/* Print all node */
-void print_all(ast_t *parent);
+/* Print all nodes */
+void print_ast(ast_t *parent);
+
+/* Remove all nodes */
+void remove_ast(ast_t *parent);
 #endif // AST_H_

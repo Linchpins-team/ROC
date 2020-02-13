@@ -1,6 +1,5 @@
 #include "queue.h"
 #include "lexer.h"
-#include "aalloc.h"
 #include "ast.h"
 
 #include <stdio.h>
@@ -665,7 +664,6 @@ void clean_up(void)
 {
 	fclose(source);
 	clear_queue(gl_queue);
-	aalloc_delete();
 }
 
 void signal_clean_up(__attribute__((unused)) int signum)
@@ -695,12 +693,12 @@ int main(int argc, char *argv[])
 
 	init_queue(&gl_queue);
 	signal(SIGINT, signal_clean_up);
-	init_aalloc();
 	atexit(clean_up);
 	next();
 	while (gl_queue->back(gl_queue).type != END) {
 		ast_t *res = expr_stat();
-		print_all(res);
+		print_ast(res);
+		remove_ast(res);
 	}
 	return 0;
 }
