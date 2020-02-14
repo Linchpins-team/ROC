@@ -119,6 +119,9 @@ enum asttype {
 		AS_LABEL_ID,
 		AS_DECLARATION_LIST,
 /* 115 */	AS_STATEMENT_LIST,
+		AS_FUNC_DEFINITION,
+		AS_EXTERN_DECL,
+		AS_TRANSLATION_UNIT,
 };
 
 typedef struct ast_node {
@@ -127,7 +130,10 @@ typedef struct ast_node {
 	size_t son_array_size;
 	size_t son_count;
 	union {
-		long long int lli;
+		int i;
+		unsigned int ui;
+		long int li;
+		unsigned long int uli;
 		char c;
 		void *ptr;
 	};

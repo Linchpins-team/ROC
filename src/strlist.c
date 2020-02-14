@@ -1,17 +1,19 @@
 #include "strlist.h"
+#include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <stdlib.h>
 
-static char const *push_front(strlist_t *list, char const *str)
+static char *push_front(strlist_t *list, char *str)
 {
 	struct strnode *nd = (struct strnode *)calloc(1, sizeof(struct strnode));
-	if (!(res = (strlist_t *)calloc(1, sizeof(res)))) {
-		return NULL;
+	if (!nd) {
+		fprintf(stderr, "ERROR: STRLIST: cannot allocate memory\n");
+		exit(1);
 	}
 	nd->next = list->first;
-	list->first = next;
-	nd->str = (char *)malloc(sizeof(char) * 1024);
-	strcpy(nd->str, str);
+	list->first = nd;
+	nd->str = str;
 	return nd->str;
 }
 
@@ -23,6 +25,7 @@ void delete(strlist_t *list)
 		list->first = ptr->next;
 		free(ptr->str);
 		free(ptr);
+		ptr = list->first;
 	}
 	free(list);
 }

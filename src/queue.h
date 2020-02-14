@@ -9,7 +9,7 @@ enum token {
 		MUL,
 		DIVIDE,
 		ASSIGN,
-/* 5 */		NUMBER,
+/* 5 */		INT_CONST,
 		NAME,
 		L_PARA,
 		R_PARA,
@@ -77,7 +77,7 @@ enum token {
 /* 70 */	K_RETURN,
 		K_SHORT,
 		K_SIGNED,
-		/* K_SIZEOF WAS DEFINED AS SIZEOF */
+		K_UNUSED_SIZEOF, /* K_SIZEOF WAS DEFINED AS SIZEOF */
 		K_STATIC,
 /* 75 */	K_STRUCT,
 		K_SWITCH,
@@ -89,13 +89,20 @@ enum token {
 		K_WHILE,
 		L_CURLY,
 		R_CURLY,
+/* 85 */	CHAR_CONST,
+		LONG_CONST,
+		UINT_CONST,
+		ULONG_CONST,
 };
 
 typedef struct {
 	enum token type;
 	union {
-		long long int lli_data;
-		char str[1024];
+		int i_data;
+		unsigned int ui_data;
+		long int li_data;
+		unsigned long int uli_data;
+		char *str;
 	};
 } token_t;
 

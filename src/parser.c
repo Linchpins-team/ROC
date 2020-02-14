@@ -237,6 +237,15 @@
 	JUMP_STATEMENT = goto identifier ';' | continue ';' | break ';' | return EXPRESSION(opt) ';'
 */
 
+/* EXTERNAL_DEFINITION
+	TRANSLATION_UNIT =
+		EXTERNAL_DECLARATION TRANSLATION_UNIT_REST
+	TRANSLATION_UNIT_REST = EXTERNAL_DECLARATION TRANSLATION_UNIT_REST | NIL
+	EXTERNAL_DECLARATION = FUNCTION_DEFINITION | DECLARATION
+	FUNCTION_DEFINITION = DECLARATION_SPECIFIER(opt) DECLARATOR
+				DECLARATION_LIST(opt) COMPOUND_STATEMENT
+*/
+
 // return 1 when error occurs
 static int match_and_pop(enum token c)
 {
@@ -262,6 +271,12 @@ static int check_and_pop(enum token c)
 	return 0;
 }
 
+static void panic(const char *msg)
+{
+	fprintf(stdout, "ERROR: PARSER: %s\n", msg);
+	exit(1);
+}
+
 static ast_t *identifier(void)
 {
 	ast_t *node = new_node(AS_ID, NULL);
@@ -273,9 +288,32 @@ static ast_t *identifier(void)
 static ast_t *constant(void)
 {
 	ast_t *node = new_node(AS_INT_LIT, NULL);
-	node->lli = gl_queue->back(gl_queue).lli_data;
-	match_and_pop(NUMBER);
-	return node;
+	switch (gl_queue->back(gl_queue).type) {
+	case CHAR_CONST:
+		node->i = gl_queue->back(gl_queue).i_data;
+		match_and_pop(CHAR_CONST);
+		return node;
+	case INT_CONST:
+		node->i = gl_queue->back(gl_queue).i_data;
+		match_and_pop(INT_CONST);
+		return node;
+	default:
+		panic("no constant found");
+		return NULL; /* SHOULD NOT BE HERE */
+	}
+}
+
+static ast_t *string(void)
+{
+	ast_t *node = new_node(AS_STR_LIT, NULL);
+	switch (gl_queue->back(gl_queue).type) {
+	case STRING:
+		match_and_pop(STRING);
+		return node;
+	default:
+		panic("no string literal found");
+		return NULL; /* SHOULD NOT BE HERE */
+	}
 }
 
 /******************************************************
@@ -298,7 +336,8 @@ static ast_t *primary(void)
 		return node;
 	case ID:
 		return identifier();
-	case DQUOTE:
+	case STRING:
+		return string();
 		/* TODO */
 	default:
 		return constant();
@@ -1164,6 +1203,7 @@ static ast_t *direct_declarator_rest(ast_t *iidd)
 		if (gl_queue->back(gl_queue).type != R_BRACK) {
 			add_son(node, const_expr());
 		}
+		match_and_pop(R_BRACK);
 		return direct_declarator_rest(node);
 	case L_PARA:
 		match_and_pop(L_PARA);
@@ -1679,10 +1719,104 @@ static ast_t *statement(void)
 	}
 }
 
+static ast_t *function_definition(void)
+{
+	ast_t *node = new_node(AS_FUNC_DEFINITION, NULL);
+	switch (gl_queue->back(gl_queue).type) {
+	case K_TYPEDEF:
+	case K_EXTERN:
+	case K_STATIC:
+	case K_AUTO:
+	case K_REGISTER:
+	case K_VOID:
+	case K_CHAR:
+	case K_SHORT:
+	case K_INT:
+	case K_LONG:
+	case K_FLOAT:
+	case K_DOUBLE:
+	case K_SIGNED:
+	case K_UNSIGNED:
+	case K_STRUCT:
+	case K_UNION:
+	case K_ENUM:
+	/* case ID: FIXME ID ( typedef name ) is not allowed*/
+		/* DECLARATION_SPECIFIER(opt) */
+		add_son(node, declaration_specifier());
+		break;
+	default:
+		break;
+	}
+	add_son(node, decl());
+	switch (gl_queue->back(gl_queue).type) {
+	case K_TYPEDEF:
+	case K_EXTERN:
+	case K_STATIC:
+	case K_AUTO:
+	case K_REGISTER:
+	case K_VOID:
+	case K_CHAR:
+	case K_SHORT:
+	case K_INT:
+	case K_LONG:
+	case K_FLOAT:
+	case K_DOUBLE:
+	case K_SIGNED:
+	case K_UNSIGNED:
+	case K_STRUCT:
+	case K_UNION:
+	case K_ENUM:
+	/* case ID: FIXME ID ( typedef name ) is not allowed*/
+		/* DECLARATION_SPECIFIER then DECLARATION_LIST*/
+		add_son(node, declaration_list());
+		break;
+	default:
+		break;
+	}
+	add_son(node, compound());
+	return node;
+}
+
+static ast_t *external_declaration(void)
+{
+	ast_t *node = new_node(AS_EXTERN_DECL, NULL);
+	size_t i;
+	for (i = 0; gl_queue->back_count(gl_queue, i).type != L_CURLY &&
+		gl_queue->back_count(gl_queue, i).type != END; ++i) {
+
+		next();
+	}
+	if (gl_queue->back_count(gl_queue, i).type == L_CURLY) {
+		return add_son(node, function_definition());
+	} else {
+		return add_son(node, declaration());
+	}
+}
+
+static ast_t *translation_unit_rest(ast_t *ee)
+{
+	ast_t *node;
+	switch(gl_queue->back(gl_queue).type) {
+	case END:
+		return ee;
+	default:
+		node = new_node(AS_TRANSLATION_UNIT, NULL);
+		add_son(node, external_declaration());
+		return translation_unit_rest(node);
+	}
+}
+
+static ast_t *translation_unit(void)
+{
+	ast_t *node = new_node(AS_TRANSLATION_UNIT, NULL);
+	add_son(node, external_declaration());
+	return translation_unit_rest(node);
+}
+
 void clean_up(void)
 {
 	fclose(source);
-	clear_queue(gl_queue);
+	exit_lexer();
 }
 
 void signal_clean_up(__attribute__((unused)) int signum)
@@ -1710,12 +1844,12 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
-	init_queue(&gl_queue);
 	signal(SIGINT, signal_clean_up);
 	atexit(clean_up);
+	init_lexer();
 	next();
 	while (gl_queue->back(gl_queue).type != END) {
-		ast_t *res = statement();
+		ast_t *res = translation_unit();
 		print_ast(res);
 		remove_ast(res);
 	}
