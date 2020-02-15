@@ -1,3 +1,4 @@
+#include "lexer.h"
 #include "queue.h"
 #include "strlist.h"
 
@@ -8,25 +9,152 @@
 
 FILE *source;
 
-size_t line, column;
+static size_t line;
+static size_t column;
+
+static size_t token_line;
+static size_t token_column;
+
+static long int line_start;
+
 queue_t gl_queue;
 
 static strlist_t *strlist;
 
-enum token current_token;
+static char const *const token_str[] = {
+	"+",
+	"-",
+	"*",
+	"/",
+	"UNUSED =",
+	"integer constant",
+	"NAME",
+	"(",
+	")",
+	";",
+	"end-of-file",
+	"identifier",
+	"string-literal",
+	",",
+	"=",
+	"*=",
+	"/=",
+	"%=",
+	"+=",
+	"-=",
+	"<<=",
+	">>=",
+	"&=",
+	"^=",
+	"|=",
+	"?",
+	":",
+	"||",
+	"&&",
+	"|",
+	"^",
+	"&",
+	"==",
+	"!=",
+	"<",
+	">",
+	"<=",
+	">=",
+	"<<",
+	">>",
+	"%",
+	"++",
+	"--",
+	"~",
+	"!",
+	"sizeof",
+	".",
+	"->",
+	"[",
+	"]",
+	"\"",
+	"auto",
+	"break",
+	"case",
+	"char",
+	"const",
+	"continue",
+	"default",
+	"do",
+	"double",
+	"else",
+	"enum",
+	"extern",
+	"float",
+	"for",
+	"goto",
+	"if",
+	"int",
+	"long",
+	"register",
+	"return",
+	"short",
+	"signed",
+	"unused_sizeof",
+	"static",
+	"struct",
+	"switch",
+	"typedef",
+	"union",
+	"unsigned",
+	"void",
+	"volatile",
+	"while",
+	"{",
+	"}",
+	"character constant",
+	"long int constant",
+	"unsinged int constant",
+	"unsinged long int constant",
+};
 
-unsigned int id_count = 0;
-struct identifier {
-	unsigned int hash;
-	unsigned int type;
-	void *memory;
-	char name[1024];
-} *id_array;
+void print_token(enum token t)
+{
+	fprintf(stdout, "%s", token_str[t]);
+}
 
+void print_token_underline(enum token t)
+{
+	size_t sz = strlen(token_str[t]);
+	for (size_t i = 0; i < sz; ++i) {
+		fputc('~', stdout);
+	}
+}
 static void panic(const char *msg)
 {
 	fprintf(stderr, "ERROR: LEXER: %s\n", msg);
 	exit(1);
+}
+
+static void lexer_seekback(void)
+{
+	--column;
+	fseek(source, -1, SEEK_CUR);
+}
+
+static void set_newline(void)
+{
+	++line;
+	column = 1;
+	line_start = ftell(source);
+}
+
+static int lexer_getc(void)
+{
+	++column;
+	return fgetc(source);
+}
+
+static void lexer_push(token_t t)
+{
+	t.line = token_line;
+	t.column = token_column;
+	gl_queue->push(gl_queue, t);
 }
 
 static unsigned int hash(const char *s)
@@ -41,40 +169,74 @@ static unsigned int hash(const char *s)
 	return hash & 0x7FFFFFFFU;
 }
 
+static void jump_block_comment(void)
+{
+	int c = lexer_getc();
+	while (c != -1) {
+		if (c == '*') {
+			c = lexer_getc();
+			if (c == '/') {
+				return;
+			} else {
+				continue;
+			}
+		} else if (c == '\n') {
+			set_newline();
+		}
+		c = lexer_getc();
+	}
+	panic("block comment without end");
+	return;
+}
+
+static void jump_line_comment(void)
+{
+	int c = lexer_getc();
+	while (c != -1 && c != '\n') {
+		c = lexer_getc();
+	}
+
+	if (c == '\n') {
+		set_newline();
+	}
+
+	return;
+}
+
 static unsigned long get_dec_ul(int c)
 {
 	unsigned long int ulli = c - '0';
-	while (isdigit(c = fgetc(source))) {
+	while (isdigit(c = lexer_getc())) {
 		ulli *= 10;
 		ulli += c - '0';
 	}
-	fseek(source, -1, SEEK_CUR);
+	lexer_seekback();
 	return ulli;
 }
 
 static unsigned long get_oct_ul(int c)
 {
 	unsigned long int ulli = c - '0';
-	while (isdigit(c = fgetc(source)) && c != '8' && c != '9') {
+	while (isdigit(c = lexer_getc()) && c != '8' && c != '9') {
 		ulli <<= 3;
 		ulli |= c - '0';
 	}
-	fseek(source, -1, SEEK_CUR);
+	lexer_seekback();
 	return ulli;
 }
 
 static unsigned long get_hex_ul(int c)
 {
 	unsigned long int ulli = c - '0';
-	while (isxdigit(c = fgetc(source))) {
+	while (isxdigit(c = lexer_getc())) {
 		ulli <<= 4;
 		if (isdigit(c)) {
 			ulli |= c - '0';
 		} else {
-			ulli |= c - 'A' + 10;
+			ulli |= toupper(c) - 'A' + 10;
 		}
 	}
-	fseek(source, -1, SEEK_CUR);
+	lexer_seekback();
 	return ulli;
 }
 
@@ -82,7 +244,7 @@ static void next_number(int c)
 {
 	unsigned long int uli;
 	if (c == 0) {
-		if (toupper(c = fgetc(source)) == 'X') {
+		if (toupper(c = lexer_getc()) == 'X') {
 			/* HEX */
 			uli = get_hex_ul(c);
 		} else {
@@ -94,34 +256,34 @@ static void next_number(int c)
 	}
 
 	token_t t;
-	c = fgetc(source);
+	c = lexer_getc();
 	if (c == 'u' || c == 'U') {
-		c = fgetc(source);
+		c = lexer_getc();
 		if (c == 'l' || c == 'L') {
 			t.type = ULONG_CONST;
 			t.uli_data = uli;
 		} else {
 			t.type = UINT_CONST;
 			t.ui_data = (unsigned int)uli;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
 	} else if (c == 'l' || c == 'L') {
-		c = fgetc(source);
+		c = lexer_getc();
 		if (c == 'u' || c == 'U') {
 			t.type = ULONG_CONST;
 			t.uli_data = uli;
 		} else {
 			t.type = LONG_CONST;
 			t.li_data = (long int)uli;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
 	} else {
 		t.type = INT_CONST;
 		t.i_data = (int)uli;
-		fseek(source, -1, SEEK_CUR);
+		lexer_seekback();
 	}
 
-	gl_queue->push(gl_queue, t);
+	lexer_push(t);
 }
 
 static void get_keyword(token_t *const t, char const *restrict const buffer)
@@ -200,6 +362,9 @@ static void get_keyword(token_t *const t, char const *restrict const buffer)
 	case 'f':
 		if (!strcmp("float", buffer)) {
 			t->type = K_FLOAT;
+			return;
+		} else if (!strcmp("for", buffer)) {
+			t->type = K_FOR;
 			return;
 		}
 		t->type = ID;
@@ -324,16 +489,16 @@ static void next_name(int c)
 	char buffer[1024];
 	buffer[0] = c;
 	size_t i;
-	for (i = 1; (isalnum(c = fgetc(source)) || c == '_') && i < sizeof(buffer) - 1; ++i) {
+	for (i = 1; (isalnum(c = lexer_getc()) || c == '_') && i < sizeof(buffer) - 1; ++i) {
 		buffer[i] = c;
 	}
 	buffer[i] = '\0';
-	fseek(source, -1, SEEK_CUR); // from stdio.h
+	lexer_seekback(); // from stdio.h
 
 	/* check whether this is identifier */
 	get_keyword(&t, buffer);
 
-	gl_queue->push(gl_queue, t);
+	lexer_push(t);
 }
 
 /* 0 = success; 1 = failed */
@@ -342,7 +507,7 @@ static int next_op(int c)
 	token_t t;
 	switch (c) {
 	case '+':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '+':
 			t.type = INC;
@@ -352,12 +517,12 @@ static int next_op(int c)
 			break;
 		default:
 			t.type = PLUS;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '-':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '-':
 			t.type = DEC;
@@ -370,130 +535,130 @@ static int next_op(int c)
 			break;
 		default:
 			t.type = MINUS;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '*':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = MULASS;
 			break;
 		default:
 			t.type = MUL;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '/':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = DIVASS;
 			break;
 		default:
 			t.type = DIVIDE;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '(':
 		t.type = L_PARA;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case ')':
 		t.type = R_PARA;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case ';':
 		t.type = SEMI;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '<':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = LE;
 			break;
 		case '<':
-			c = fgetc(source);
+			c = lexer_getc();
 			switch (c) {
 			case '=':
 				t.type = SHLASS;
 				break;
 			default:
 				t.type = SHL;
-				fseek(source, -1, SEEK_CUR);
+				lexer_seekback();
 			}
 			break;
 		default:
 			t.type = LT;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '>':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = GE;
 			break;
 		case '>':
-			c = fgetc(source);
+			c = lexer_getc();
 			switch (c) {
 			case '=':
 				t.type = SHRASS;
 				break;
 			default:
 				t.type = SHR;
-				fseek(source, -1, SEEK_CUR);
+				lexer_seekback();
 			}
 			break;
 		default:
 			t.type = GT;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '=':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = EQ;
 			break;
 		default:
 			t.type = ASS;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '!':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = NEQ;
 			break;
 		default:
 			t.type = NOT;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '%':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = MODASS;
 			break;
 		default:
 			t.type = MOD;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '&':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = ANDASS;
@@ -503,24 +668,24 @@ static int next_op(int c)
 			break;
 		default:
 			t.type = AND;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '^':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = XORASS;
 			break;
 		default:
 			t.type = XOR;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '|':
-		c = fgetc(source);
+		c = lexer_getc();
 		switch (c) {
 		case '=':
 			t.type = ORASS;
@@ -530,49 +695,49 @@ static int next_op(int c)
 			break;
 		default:
 			t.type = OR;
-			fseek(source, -1, SEEK_CUR);
+			lexer_seekback();
 		}
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '?':
 		t.type = QUESTION;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case ':':
 		t.type = COLON;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '~':
 		t.type = COMPLEMENT;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '[':
 		t.type = L_BRACK;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case ']':
 		t.type = R_BRACK;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '{':
 		t.type = L_CURLY;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '}':
 		t.type = R_CURLY;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case '.':
 		t.type = MEMBER;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case ',':
 		t.type = COMMA;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	case -1:
 		t.type = END;
-		gl_queue->push(gl_queue, t);
+		lexer_push(t);
 		return 0;
 	default:
 		return 1;
@@ -581,13 +746,13 @@ static int next_op(int c)
 
 static int get_hex(void)
 {
-	int c = fgetc(source);
+	int c = lexer_getc();
 	int ret;
 	if (isxdigit(c)) {
 		if (isdigit(c)) {
 			ret = c - '0';
 		} else {
-			ret = c - 'A' + 10;
+			ret = toupper(c) - 'A' + 10;
 		}
 	}
 
@@ -596,7 +761,7 @@ static int get_hex(void)
 		if (isdigit(c)) {
 			ret = c - '0';
 		} else {
-			ret = c - 'A' + 10;
+			ret = toupper(c) - 'A' + 10;
 		}
 	}
 	return ret;
@@ -604,7 +769,7 @@ static int get_hex(void)
 
 static int get_oct(void)
 {
-	int c = fgetc(source);
+	int c = lexer_getc();
 	int ret;
 	if (isdigit(c) && c != '8' && c != '9') {
 		ret = c - '0';
@@ -626,7 +791,7 @@ static int get_oct(void)
 
 static int get_escape(void)
 {
-	int c = fgetc(source);
+	int c = lexer_getc();
 	if (isdigit(c)) {
 		return get_oct();
 	}
@@ -664,21 +829,21 @@ static int get_escape(void)
 static void next_char(void)
 {
 	token_t t;
-	int c = fgetc(source);
+	int c = lexer_getc();
 	t.type = CHAR_CONST;
 	switch (c) {
 	case '\\':
 		t.i_data = get_escape();
-		fgetc(source);
-		gl_queue->push(gl_queue, t);
+		lexer_getc();
+		lexer_push(t);
 		return;
 	case '\'':
 		panic("THE CHARACTER CONSTANT WITHOUT A CHARACTER");
 		return; /* SHOULD NOT BE HERE */
 	default:
 		t.i_data = c;
-		fgetc(source);
-		gl_queue->push(gl_queue, t);
+		lexer_getc();
+		lexer_push(t);
 		return;
 	}
 }
@@ -697,7 +862,7 @@ static void next_string(void)
 	}
 
 	int c;
-	while ((c = fgetc(source)) != '\"') {
+	while ((c = lexer_getc()) != '\"') {
 		if (c == '\\') {
 			t.str[it++] = get_escape();
 		} else {
@@ -716,13 +881,16 @@ static void next_string(void)
 	}
 	t.str[it] = 0;
 	strlist->push_front(strlist, t.str);
-	gl_queue->push(gl_queue, t);
+	lexer_push(t);
 }
 
 void next(void)
 {
 	while (1) {
-		int c = fgetc(source);
+		token_line = line;
+		token_column = column;
+
+		int c = lexer_getc();
 		if (isalpha(c) || c == '_') {
 			next_name(c);
 			return;
@@ -730,6 +898,18 @@ void next(void)
 		if (isdigit(c)) {
 			next_number(c);
 			return;
+		}
+		if (c == '/') {
+			c = lexer_getc();
+			if (c == '/') {
+				jump_line_comment();
+				continue;
+			} else if (c == '*') {
+				jump_block_comment();
+				continue;
+			} else {
+				lexer_seekback();
+			}
 		}
 		if (c == '\'') {
 			next_char();
@@ -741,7 +921,7 @@ void next(void)
 		}
 		switch (c) {
 		case '\n':
-			++line;
+			set_newline();
 			break;
 		default:
 			if (!next_op(c)) {
@@ -752,6 +932,64 @@ void next(void)
 	}
 }
 
+void print_line(size_t line)
+{
+	long int cur = ftell(source);
+	fseek(source, 0, SEEK_SET);
+	size_t cur_line = 1;
+
+	int c;
+	if (line > 1) {
+		while ((c = fgetc(source)) != -1) {
+			if (c == '\n') {
+				++cur_line;
+			}
+			if (cur_line == line) {
+				break;
+			}
+		}
+	}
+	while ((c = fgetc(source)) != -1 && c != '\n') {
+		fputc(c, stdout);
+	}
+	fseek(source, cur, SEEK_SET);
+}
+
+void shift_line(size_t line, size_t column)
+{
+	long int cur = ftell(source);
+	fseek(source, 0, SEEK_SET);
+	size_t cur_line = 1;
+
+	int c;
+	if (line > 1) {
+		while ((c = fgetc(source)) != -1) {
+			if (c == '\n') {
+				++cur_line;
+			}
+			if (cur_line == line) {
+				break;
+			}
+		}
+	}
+
+	size_t cur_column = 1;
+	if (column > 1) {
+		while ((c = fgetc(source)) != -1 && c != '\n') {
+			if (c == '\t') {
+				fputc(c, stdout);
+			} else {
+				fputc(' ', stdout);
+			}
+			++cur_column;
+			if (cur_column == column) {
+				break;
+			}
+		}
+	}
+	fseek(source, cur, SEEK_SET);
+}
+
 void exit_lexer(void)
 {
 	clear_queue(gl_queue);
@@ -760,6 +998,9 @@ void exit_lexer(void)
 
 void init_lexer(void)
 {
+	line = 1;
+	column = 1;
 	init_queue(&gl_queue);
 	strlist = init_strlist();
+	line_start = ftell(source);
 }

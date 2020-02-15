@@ -1,6 +1,7 @@
 #include "queue.h"
 #include "lexer.h"
 #include "ast.h"
+#include "error_msg.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -246,36 +247,6 @@
 				DECLARATION_LIST(opt) COMPOUND_STATEMENT
 */
 
-// return 1 when error occurs
-static int match_and_pop(enum token c)
-{
-	if (gl_queue->back(gl_queue).type != c) {
-		fprintf(stdout, "Expected Token: %d , but found Token: %d\n",
-			c, gl_queue->back(gl_queue).type);
-		exit(1);
-	}
-	gl_queue->pop(gl_queue);
-	next();
-	return 0;
-}
-
-static int check_and_pop(enum token c)
-{
-	if (gl_queue->back(gl_queue).type != c) {
-		return 1;
-	}
-	gl_queue->pop(gl_queue);
-	if (gl_queue->empty(gl_queue)) {
-		next();
-	}
-	return 0;
-}
-
-static void panic(const char *msg)
-{
-	fprintf(stdout, "ERROR: PARSER: %s\n", msg);
-	exit(1);
-}
 
 static ast_t *identifier(void)
 {
@@ -284,6 +255,64 @@ static ast_t *identifier(void)
 	match_and_pop(ID);
 	return node;
 }
+
+#define GREEN "\x1b[;32;1m"
+#define RED "\x1b[;31;1m"
+#define RESET "\x1b[0m"
+
+static void panic(const char *msg)
+{
+	fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": %s\n ",
+		gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column, msg);
+
+	print_line(gl_queue->back(gl_queue).line);
+	fprintf(stdout, "\n ");
+
+	shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+	fprintf(stdout, RED "\b^" GREEN);
+	print_token_underline(gl_queue->back(gl_queue).type);
+	fprintf(stdout, "\n ");
+
+	shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+
+	fprintf(stdout, "\b%s\n" RESET, msg);
+
+	exit(1);
+}
+
+static int match_and_pop(enum token c)
+{
+	if (gl_queue->back(gl_queue).type != c) {
+		fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": expected \"",
+			gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		print_token(c);
+		fprintf(stdout, "\" before \"");
+		print_token(gl_queue->back(gl_queue).type);
+		fprintf(stdout, "\"\n ");
+
+		print_line(gl_queue->back(gl_queue).line);
+		fprintf(stdout, "\n ");
+
+		shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		fprintf(stdout, RED "\b^" GREEN);
+		print_token_underline(gl_queue->back(gl_queue).type);
+		fprintf(stdout, "\n ");
+
+		shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+
+		fprintf(stdout, "\b");
+		print_token(c);
+		fprintf(stdout, "\n" RESET);
+		exit(1);
+	}
+	gl_queue->pop(gl_queue);
+	next();
+	return 0;
+}
+
+#undef GREEN
+#undef RED
+#undef RESET
 
 static ast_t *constant(void)
 {
@@ -298,7 +327,7 @@ static ast_t *constant(void)
 		match_and_pop(INT_CONST);
 		return node;
 	default:
-		panic("no constant found");
+		match_and_pop(INT_CONST);
 		return NULL; /* SHOULD NOT BE HERE */
 	}
 }
@@ -306,14 +335,8 @@ static ast_t *constant(void)
 static ast_t *string(void)
 {
 	ast_t *node = new_node(AS_STR_LIT, NULL);
-	switch (gl_queue->back(gl_queue).type) {
-	case STRING:
-		match_and_pop(STRING);
-		return node;
-	default:
-		panic("no string literal found");
-		return NULL; /* SHOULD NOT BE HERE */
-	}
+	match_and_pop(STRING);
+	return node;
 }
 
 /******************************************************
@@ -1043,7 +1066,7 @@ static ast_t *specifier_qualifier_list(void)
 		node = new_node(AS_DECL_TYPENAME, NULL);
 		break; */
 	default:
-		fprintf(stderr, "Cannot find declaration specifier\n");
+		panic("Cannot find declaration specifier");
 		exit(1); /* SHOULD NOT BE HERE */
 	}
 	switch (gl_queue->back(gl_queue).type) {
@@ -1133,6 +1156,10 @@ static ast_t *parameter_list_rest(ast_t *pdd)
 	ast_t *node;
 	switch (gl_queue->back(gl_queue).type) {
 	case COMMA:
+		next();
+		if (gl_queue->back_count(gl_queue, 1).type == MEMBER) {
+			return pdd;
+		}
 		match_and_pop(COMMA);
 		node = new_node(AS_PARA_LIST, NULL);
 		add_son(node, pdd);
@@ -1237,7 +1264,7 @@ static ast_t *direct_declarator(void)
 		match_and_pop(R_PARA);
 		return direct_declarator_rest(node);
 	default:
-		fprintf(stderr, "THERE SHOULD BE A DIRECT DECLARATOR\n");
+		panic("declaration specifier not found");
 		exit(1);
 	}
 }
@@ -1378,7 +1405,7 @@ static ast_t *declaration_specifier(void)
 		node = new_node(AS_DECL_TYPENAME, NULL);
 		break; */
 	default:
-		fprintf(stderr, "Cannot find declaration specifier\n");
+		panic("cannot find declaration specifier");
 		exit(1); /* SHOULD NOT BE HERE */
 	}
 	switch (gl_queue->back(gl_queue).type) {
@@ -1503,7 +1530,7 @@ static ast_t *for_iter(void)
 		add_son(node, expr());
 	}
 	match_and_pop(SEMI);
-	if (gl_queue->back(gl_queue).type != SEMI) {
+	if (gl_queue->back(gl_queue).type != R_PARA) {
 		add_son(node, expr());
 	}
 	match_and_pop(R_PARA);
@@ -1579,6 +1606,7 @@ static ast_t *statement_list_rest(ast_t *ss)
 	add_son(node, ss);
 	switch (gl_queue->back(gl_queue).type) {
 	case R_CURLY:
+	case END:
 		return node;
 	default:
 		return statement_list_rest(add_son(node, statement()));
@@ -1786,7 +1814,9 @@ static ast_t *external_declaration(void)
 
 		next();
 	}
-	if (gl_queue->back_count(gl_queue, i).type == L_CURLY) {
+	if (gl_queue->back_count(gl_queue, i).type == L_CURLY &&
+		(i >= 1 &&
+		gl_queue->back_count(gl_queue, i-1).type != ASS)) {
 		return add_son(node, function_definition());
 	} else {
 		return add_son(node, declaration());

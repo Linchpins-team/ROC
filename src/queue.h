@@ -8,7 +8,7 @@ enum token {
 		MINUS,
 		MUL,
 		DIVIDE,
-		ASSIGN,
+		UNUSED_ASSIGN,
 /* 5 */		INT_CONST,
 		NAME,
 		L_PARA,
@@ -97,6 +97,8 @@ enum token {
 
 typedef struct {
 	enum token type;
+	size_t line;
+	size_t column;
 	union {
 		int i_data;
 		unsigned int ui_data;
@@ -121,8 +123,6 @@ struct queue_node {
 	struct queue_node *prev;
 	token_t value;
 };
-
-extern size_t line, column; // lexer.c
 
 void init_queue(struct queue **q);
 void clear_queue(queue_t q);
