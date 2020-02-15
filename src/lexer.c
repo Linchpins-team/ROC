@@ -125,11 +125,31 @@ void print_token_underline(enum token t)
 		fputc('~', stdout);
 	}
 }
+
+#define GREEN "\x1b[;32;1m"
+#define RED "\x1b[;31;1m"
+#define RESET "\x1b[0m"
+
 static void panic(const char *msg)
 {
-	fprintf(stderr, "ERROR: LEXER: %s\n", msg);
+	fprintf(stdout, "lexer:%zu:%zu: " RED "error" RESET ": %s\n ",
+		token_line, token_column, msg);
+
+	print_line(token_line);
+	fprintf(stdout, "\n ");
+
+	shift_line(token_line, token_column);
+	fprintf(stdout, RED "^~~~~~~~~~~~~~~\n " GREEN);
+	shift_line(token_line, token_column);
+
+	fprintf(stdout, "%s\n" RESET, msg);
+
 	exit(1);
 }
+
+#undef GREEN
+#undef RED
+#undef RESET
 
 static void lexer_seekback(void)
 {
@@ -838,7 +858,7 @@ static void next_char(void)
 		lexer_push(t);
 		return;
 	case '\'':
-		panic("THE CHARACTER CONSTANT WITHOUT A CHARACTER");
+		panic("character constant not found");
 		return; /* SHOULD NOT BE HERE */
 	default:
 		t.i_data = c;
@@ -862,23 +882,31 @@ static void next_string(void)
 	}
 
 	int c;
-	while ((c = lexer_getc()) != '\"') {
-		if (c == '\\') {
-			t.str[it++] = get_escape();
-		} else {
-			t.str[it++] = c;
-		}
-		if (it >= sz) {
-			t.str = realloc(t.str, sizeof(char) * (sz *= 2));
-			if (t.str == NULL) {
-				panic("cannot allocate memory");
-				return;
+	do {
+		while ((c = lexer_getc()) != '\"') {
+			if (c == '\\') {
+				t.str[it++] = get_escape();
+			} else {
+				t.str[it++] = c;
+			}
+			if (it >= sz) {
+				t.str = realloc(t.str, sizeof(char) * (sz *= 2));
+				if (t.str == NULL) {
+					panic("cannot allocate memory");
+					return;
+				}
+			}
+			if (c == -1) {
+				panic("string without end");
 			}
 		}
-		if (c == -1) {
-			panic("string without end");
+
+		while ((c = lexer_getc()) == '\n' || c == '\t' || c == ' ') {
+			continue;
 		}
-	}
+	} while (c == '\"');
+	lexer_seekback();
+
 	t.str[it] = 0;
 	strlist->push_front(strlist, t.str);
 	lexer_push(t);
@@ -909,6 +937,8 @@ void next(void)
 				continue;
 			} else {
 				lexer_seekback();
+				lexer_seekback();
+				c = lexer_getc();
 			}
 		}
 		if (c == '\'') {

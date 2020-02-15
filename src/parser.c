@@ -1,12 +1,10 @@
+#include "parser.h"
 #include "queue.h"
 #include "lexer.h"
 #include "ast.h"
-#include "error_msg.h"
 
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
-#include <signal.h>
 
 
 /*
@@ -248,14 +246,6 @@
 */
 
 
-static ast_t *identifier(void)
-{
-	ast_t *node = new_node(AS_ID, NULL);
-
-	match_and_pop(ID);
-	return node;
-}
-
 #define GREEN "\x1b[;32;1m"
 #define RED "\x1b[;31;1m"
 #define RESET "\x1b[0m"
@@ -313,6 +303,14 @@ static int match_and_pop(enum token c)
 #undef GREEN
 #undef RED
 #undef RESET
+
+static ast_t *identifier(void)
+{
+	ast_t *node = new_node(AS_ID, NULL);
+
+	match_and_pop(ID);
+	return node;
+}
 
 static ast_t *constant(void)
 {
@@ -440,6 +438,7 @@ static ast_t *post(void)
 	return post_rest(primary());
 }
 
+static ast_t *typename(void);
 static ast_t *cast(void);
 static ast_t *unary(void)
 {
@@ -488,10 +487,38 @@ static ast_t *unary(void)
 		add_son(node, cast());
 		break;
 	case SIZEOF:
-		/* FIXME: typename */
 		match_and_pop(SIZEOF);
 		node = new_node(AS_SIZEOF, NULL);
-		add_son(node, unary());
+		switch (gl_queue->back(gl_queue).type) {
+		case L_PARA:
+			next();
+			switch (gl_queue->back_count(gl_queue, 1).type) {
+			case K_VOID:
+			case K_CHAR:
+			case K_SHORT:
+			case K_INT:
+			case K_LONG:
+			case K_FLOAT:
+			case K_DOUBLE:
+			case K_SIGNED:
+			case K_UNSIGNED:
+			case K_STRUCT:
+			case K_UNION:
+			case K_ENUM:
+			/* case ID: FIXME ID ( typedef name ) is not allowed*/
+				match_and_pop(L_PARA);
+				add_son(node, typename());
+				match_and_pop(R_PARA);
+				break;
+			default:
+				add_son(node, unary());
+				break;
+			}
+			break;
+		default:
+			add_son(node, unary());
+			break;
+		}
 		break;
 	default:
 		node = post();
@@ -502,9 +529,35 @@ static ast_t *unary(void)
 
 static ast_t *cast(void)
 {
+	ast_t *node;
 	switch(gl_queue->back(gl_queue).type) {
 	case L_PARA:
+		next();
 		/* FIXME type name */
+		switch (gl_queue->back_count(gl_queue, 1).type) {
+		case K_VOID:
+		case K_CHAR:
+		case K_SHORT:
+		case K_INT:
+		case K_LONG:
+		case K_FLOAT:
+		case K_DOUBLE:
+		case K_SIGNED:
+		case K_UNSIGNED:
+		case K_STRUCT:
+		case K_UNION:
+		case K_ENUM:
+		/* case ID: FIXME ID ( typedef name ) is not allowed*/
+			node = new_node(AS_CAST, NULL);
+			match_and_pop(L_PARA);
+			add_son(node, typename());
+			match_and_pop(R_PARA);
+			add_son(node, cast());
+			return node;
+		default:
+			return unary();
+		}
+		return node;
 	default:
 		return unary();
 	}
@@ -801,6 +854,7 @@ static ast_t *assign(void)
 	case XORASS:
 	case ORASS:
 		if (!(cnd->type == AS_UNARY)) {
+			panic("L-Value should be a unary expression");
 			exit(1);
 		}
 		break;
@@ -998,6 +1052,8 @@ static ast_t *abstract_declarator(void)
 	}
 }
 
+static ast_t *struct_union_specifier(void);
+static ast_t *enum_specifier(void);
 static ast_t *specifier_qualifier_list(void)
 {
 	ast_t *node;
@@ -1047,17 +1103,13 @@ static ast_t *specifier_qualifier_list(void)
 		node = new_node(AS_DECL_VOLATILE, NULL);
 		break;
 
-	/* FIXME: struct class specifier */
 	case K_STRUCT:
-		node = new_node(AS_DECL_STRUCT, NULL);
-		break;
 	case K_UNION:
-		node = new_node(AS_DECL_UNION, NULL);
+		node = struct_union_specifier();
 		break;
 
-	/* FIXME: enum specifier */
 	case K_ENUM:
-		node = new_node(AS_DECL_ENUM, NULL);
+		node = enum_specifier();
 		break;
 	/* case ID: FIXME ID ( typedef name ) is not allowed*/
 	/*
@@ -1282,6 +1334,142 @@ static ast_t *decl(void)
 	return add_son(node, direct_declarator());
 }
 
+static ast_t *struct_declarator(void)
+{
+	ast_t *node = new_node(AS_STRUCT_DECLARATOR, NULL);
+	switch (gl_queue->back(gl_queue).type) {
+	case COLON:
+		match_and_pop(COLON);
+		add_son(node, const_expr());
+		return node;
+	default:
+		add_son(node, decl());
+		if (gl_queue->back(gl_queue).type == COLON) {
+			match_and_pop(COLON);
+			add_son(node, const_expr());
+		}
+		return node;
+	}
+}
+
+// ENUMERATION_CONST := ID
+static ast_t *enumerator(void)
+{
+	ast_t *node = new_node(AS_ENUMERATOR, NULL);
+	add_son(node, identifier()); // enumeration-constant
+	if (gl_queue->back(gl_queue).type == ASS) {
+		match_and_pop(ASS);
+		add_son(node, const_expr());
+	}
+	return node;
+	
+}
+
+static ast_t *enumerator_list_rest(ast_t *ee)
+{
+	ast_t *node;
+	switch (gl_queue->back(gl_queue).type) {
+	case COMMA:
+		match_and_pop(COMMA);
+		node = new_node(AS_ENUM_LIST, NULL);
+		add_son(node, enumerator());
+		return enumerator_list_rest(node);
+	default:
+		return ee;
+	}
+}
+
+static ast_t *enumerator_list(void)
+{
+	ast_t *node = new_node(AS_ENUM_LIST, NULL);
+	add_son(node, enumerator());
+	return enumerator_list_rest(node);
+}
+
+static ast_t *enum_specifier(void)
+{
+	ast_t *node = new_node(AS_DECL_ENUM, NULL);
+	match_and_pop(K_ENUM);
+	switch (gl_queue->back(gl_queue).type) {
+	case ID:
+		add_son(node, identifier());
+		break;
+	default:
+		match_and_pop(L_CURLY);
+		add_son(node, enumerator_list());
+		match_and_pop(R_CURLY);
+		return node;
+	}
+	if (gl_queue->back(gl_queue).type == L_CURLY) {
+		match_and_pop(L_CURLY);
+		add_son(node, enumerator_list());
+		match_and_pop(R_CURLY);
+	}
+	return node;
+}
+
+static ast_t *struct_declarator_list_rest(ast_t *ss)
+{
+	ast_t *node;
+	switch (gl_queue->back(gl_queue).type) {
+	case COMMA:
+		match_and_pop(COMMA);
+		node = new_node(AS_STRUCT_DECLARATOR_LIST, NULL);
+		add_son(node, struct_declarator());
+		return struct_declarator_list_rest(node);
+	default:
+		return ss;
+	}
+}
+
+static ast_t *struct_declarator_list(void)
+{
+	ast_t *node = new_node(AS_STRUCT_DECLARATOR_LIST, NULL);
+	add_son(node, struct_declarator());
+	return struct_declarator_list_rest(node);
+}
+
+static ast_t *struct_declaration(void)
+{
+	ast_t *node = new_node(AS_STRUCT_DECLARATION, NULL);
+	add_son(node, specifier_qualifier_list());
+	add_son(node, struct_declarator_list());
+	match_and_pop(SEMI);
+	return node;
+}
+
+static ast_t *struct_declaration_list_rest(ast_t *ss)
+{
+	ast_t *node;
+	switch (gl_queue->back(gl_queue).type) {
+	case K_VOID:
+	case K_CHAR:
+	case K_SHORT:
+	case K_INT:
+	case K_LONG:
+	case K_FLOAT:
+	case K_DOUBLE:
+	case K_SIGNED:
+	case K_UNSIGNED:
+	case K_STRUCT:
+	case K_UNION:
+	case K_ENUM:
+	/* case ID: FIXME ID ( typedef name ) is not allowed*/
+		node = new_node(AS_STRUCT_DECLARATION_LIST, NULL);
+		add_son(node, struct_declaration());
+		return struct_declaration_list_rest(node);
+	default:
+		return ss;
+	}
+}
+
+static ast_t *struct_declaration_list(void)
+{
+	ast_t *node = new_node(AS_STRUCT_DECLARATION_LIST, NULL);
+	add_son(node, struct_declaration());
+	return struct_declaration_list_rest(node);
+}
+
 static ast_t *init_decl(void)
 {
 	ast_t *node = new_node(AS_INIT_DECL, NULL);
@@ -1314,6 +1502,40 @@ static ast_t *init_decl_list_rest(ast_t *ii)
 static ast_t *init_decl_list(void)
 {
 	return init_decl_list_rest(init_decl());
+}
+
+static ast_t *struct_union_specifier(void)
+{
+	ast_t *node;
+	switch (gl_queue->back(gl_queue).type) {
+	case K_STRUCT:
+		node = new_node(AS_DECL_STRUCT, NULL);
+		match_and_pop(K_STRUCT);
+		break;
+	case K_UNION:
+		node = new_node(AS_DECL_UNION, NULL);
+		match_and_pop(K_UNION);
+		break;
+	default:
+		match_and_pop(K_STRUCT);
+		break; /* SHOULD NOT BE HERE */
+	}
+	switch (gl_queue->back(gl_queue).type) {
+	case ID:
+		add_son(node, identifier());
+		break;
+	default:
+		match_and_pop(L_CURLY);
+		add_son(node, struct_declaration_list());
+		match_and_pop(R_CURLY);
+		return node;
+	}
+	if (gl_queue->back(gl_queue).type == L_CURLY) {
+		match_and_pop(L_CURLY);
+		add_son(node, struct_declaration_list());
+		match_and_pop(R_CURLY);
+	}
+	return node;
 }
 
 static ast_t *declaration_specifier(void)
@@ -1385,17 +1607,13 @@ static ast_t *declaration_specifier(void)
 		node = new_node(AS_DECL_VOLATILE, NULL);
 		break;
 
-	/* FIXME: struct class specifier */
 	case K_STRUCT:
-		node = new_node(AS_DECL_STRUCT, NULL);
-		break;
 	case K_UNION:
-		node = new_node(AS_DECL_UNION, NULL);
+		node = struct_union_specifier();
 		break;
 
-	/* FIXME: enum specifier */
 	case K_ENUM:
-		node = new_node(AS_DECL_ENUM, NULL);
+		node = enum_specifier();
 		break;
 
 	/* case ID: FIXME ID ( typedef name ) is not allowed*/
@@ -1747,6 +1965,14 @@ static ast_t *statement(void)
 	}
 }
 
+/******************************************************
+ *
+ * STATEMENT END
+ *
+ * EXTERNAL START
+ *
+ ******************************************************/
+
 static ast_t *function_definition(void)
 {
 	ast_t *node = new_node(AS_FUNC_DEFINITION, NULL);
@@ -1836,52 +2062,17 @@ static ast_t *translation_unit_rest(ast_t *ee)
 	}
 }
 
-static ast_t *translation_unit(void)
+ast_t *translation_unit(void)
 {
 	ast_t *node = new_node(AS_TRANSLATION_UNIT, NULL);
 	add_son(node, external_declaration());
 	return translation_unit_rest(node);
 }
 
-void clean_up(void)
-{
-	fclose(source);
-	exit_lexer();
-}
-
-void signal_clean_up(__attribute__((unused)) int signum)
-{
-	exit(1);
-}
-
-void usage(void)
-{
-	puts("arth Filename");
-	puts("File: Every Expression should be end in a semicolon; there\n"
-		"could be more than one expression in a file.");
-}
-
-int main(int argc, char *argv[])
-{
-	if (argc <= 1) {
-		puts("No filename entered");
-		usage();
-		return 1;
-	}
-	source = fopen(argv[1], "r");
-	if (source == (void *)0) {
-		puts("Cannot open this file");
-		return 1;
-	}
-
-	signal(SIGINT, signal_clean_up);
-	atexit(clean_up);
-	init_lexer();
-	next();
-	while (gl_queue->back(gl_queue).type != END) {
-		ast_t *res = translation_unit();
-		print_ast(res);
-		remove_ast(res);
-	}
-	return 0;
-}
+/******************************************************
+ *
+ *
+ * EXTERNAL END
+ *
+ *
+ ******************************************************/
