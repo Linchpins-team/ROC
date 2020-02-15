@@ -333,6 +333,7 @@ static ast_t *constant(void)
 static ast_t *string(void)
 {
 	ast_t *node = new_node(AS_STR_LIT, NULL);
+	node->ptr = gl_queue->back(gl_queue).str;
 	match_and_pop(STRING);
 	return node;
 }
@@ -1287,6 +1288,7 @@ static ast_t *direct_declarator_rest(ast_t *iidd)
 	case L_PARA:
 		match_and_pop(L_PARA);
 		node = new_node(AS_DECL_FUNC, NULL);
+		add_son(node, iidd);
 		switch (gl_queue->back(gl_queue).type) {
 		case ID:
 			add_son(node, identifier_list());

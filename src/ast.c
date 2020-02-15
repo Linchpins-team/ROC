@@ -4,11 +4,28 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <stddef.h>
+#include <string.h>
+
+#define GREEN "\x1b[;32;1m"
+#define RED "\x1b[;31;1m"
+#define RESET "\x1b[0m"
+
+static void panic(const char *msg)
+{
+	fprintf(stdout, "cc: " RED "fatal error" RESET ": %s\n", msg);
+	exit(1);
+}
+
+#undef GREEN
+#undef RED
+#undef RESET
+
 
 ast_t *new_node(enum asttype type, ast_t *parent)
 {
 	ast_t *ptr = (ast_t *)calloc(1, sizeof(ast_t));
 	if (ptr == NULL) {
+		panic(strerror(errno));
 		return NULL;
 	}
 
@@ -40,7 +57,7 @@ ast_t *add_son(ast_t *restrict parent, ast_t *restrict son)
 		/* Extend the size of son_array */
 		ast_t **new_ptr = (ast_t **)realloc(parent->son_array, sizeof(ast_t *) * (parent->son_array_size += 2));
 		if (new_ptr == NULL) {
-			fprintf(stderr, "REALLOC FAILED: At Line %d , Function: %s , File %s\n", __LINE__, __func__, __FILE__);
+			panic(strerror(errno));
 			exit(EXIT_FAILURE);
 		}
 		parent->son_array = new_ptr;
@@ -76,5 +93,6 @@ void remove_ast(ast_t *parent)
 	for (size_t i = 0; i < parent->son_count; ++i) {
 		remove_ast(parent->son_array[i]);
 	}
+	free(parent->son_array);
 	free(parent);
 }

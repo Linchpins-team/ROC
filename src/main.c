@@ -4,8 +4,24 @@
 #include "parser.h"
 
 #include <stdio.h>
+#include <string.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <errno.h>
+
+#define GREEN "\x1b[;32;1m"
+#define RED "\x1b[;31;1m"
+#define RESET "\x1b[0m"
+
+static void panic(const char *msg)
+{
+	fprintf(stdout, "cc: " RED "fatal error" RESET ": %s\n", msg);
+	exit(1);
+}
+
+#undef GREEN
+#undef RED
+#undef RESET
 
 static void clean_up(void)
 {
@@ -28,13 +44,14 @@ static void usage(void)
 int main(int argc, char *argv[])
 {
 	if (argc <= 1) {
-		puts("No filename entered");
+		panic("no input file");
 		usage();
 		return 1;
 	}
+
 	source = fopen(argv[1], "r");
 	if (source == (void *)0) {
-		puts("Cannot open this file");
+		panic(strerror(errno));
 		return 1;
 	}
 

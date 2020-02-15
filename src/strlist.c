@@ -33,7 +33,7 @@ void delete(strlist_t *list)
 strlist_t *init_strlist(void)
 {
 	strlist_t *res;
-	if (!(res = (strlist_t *)calloc(1, sizeof(res)))) {
+	if (!(res = (strlist_t *)calloc(1, sizeof(strlist_t)))) {
 		return NULL;
 	}
 	res->first = NULL;
