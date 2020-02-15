@@ -927,6 +927,10 @@ void next(void)
 			next_number(c);
 			return;
 		}
+		if (c == '#') {
+			jump_line_comment();
+			continue;
+		}
 		if (c == '/') {
 			c = lexer_getc();
 			if (c == '/') {
