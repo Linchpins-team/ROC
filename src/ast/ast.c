@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stddef.h>
 #include <string.h>
+#include <errno.h>
 
 #define GREEN "\x1b[;32;1m"
 #define RED "\x1b[;31;1m"

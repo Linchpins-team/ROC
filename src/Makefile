@@ -1,11 +1,12 @@
 CC=gcc
-CFLAGS=-Wall -Wpedantic -Wextra -ggdb
+CFLAGS=-Wall -Wpedantic -Wextra -ggdb -I./include
 
 .PHONY: all clean
 all: main
-main: main.o parser.o lexer.o queue.o ast.o strlist.o
+main: main.o parser/parser.o lexer/lexer.o queue/queue.o ast/ast.o strlist/strlist.o
 	${CC} ${CFLAGS} $^ -o $@
 %.o: %.c
 	${CC} ${CFLAGS} -c $^ -o $@
 clean:
-	rm -rf *.o main
+	rm main
+	find . -name \*.o -type f -delete
