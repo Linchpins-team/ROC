@@ -129,11 +129,18 @@ enum asttype {
 		AS_ENUM_LIST,
 		AS_ENUMERATOR,
 /* 125 */	AS_CAST,
+		AS_UINT_LIT,
+		AS_ULONG_LIT,
+		AS_LONG_LIT,
 };
 
 typedef struct ast_node {
 	struct ast_node *parent;
 	enum asttype type;
+
+	size_t dline;
+	size_t dcolumn;
+
 	size_t son_array_size;
 	size_t son_count;
 	union {
@@ -148,13 +155,18 @@ typedef struct ast_node {
 } ast_t;
 
 /* Return: the pointer to new_node */
-ast_t *new_node(enum asttype type, ast_t *parent);
+ast_t *new_node(enum asttype type, ast_t *parent, size_t dline, size_t dcolumn);
 
 /* Return: the pointer to parent */
 ast_t *add_son(ast_t *restrict parent, ast_t *restrict son);
 
 /* Print all nodes */
 void print_ast(ast_t *parent);
+
+/* Check whether node with the type exists in the subtree */
+int exist_ast(ast_t *parent, enum asttype type);
+
+void iterate_type_ast(ast_t *parent, enum asttype type, void (*func)(struct ast_node *));
 
 /* Remove all nodes */
 void remove_ast(ast_t *parent);

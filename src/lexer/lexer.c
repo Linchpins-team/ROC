@@ -113,6 +113,26 @@ static char const *const token_str[] = {
 	"unsinged long int constant",
 };
 
+void lexer_token_seek(size_t l, size_t c)
+{
+	fseek(source, 0, SEEK_SET);
+	for (size_t i = 1; i < l; ++i) {
+		while (fgetc(source) != '\n') {
+			continue;
+		}
+	}
+	for (size_t i = 1; i < c; ++i) {
+		fgetc(source);
+	}
+	line = l;
+	column = c;
+
+	while (!gl_queue->empty(gl_queue)) {
+		gl_queue->pop(gl_queue);
+	}
+	next();
+}
+
 void print_token(enum token t)
 {
 	fprintf(stdout, "%s", token_str[t]);
@@ -251,11 +271,12 @@ static unsigned long get_hex_ul(int c)
 static void next_number(int c)
 {
 	unsigned long int uli;
-	if (c == 0) {
+	if (c == '0') {
 		if (toupper(c = lexer_getc()) == 'X') {
 			/* HEX */
 			uli = get_hex_ul(c);
 		} else {
+			lexer_seekback();
 			/* OCT */
 			uli = get_oct_ul(c);
 		}
@@ -494,17 +515,40 @@ static void get_keyword(token_t *const t, char const *restrict const buffer)
 static void next_name(int c)
 {
 	token_t t;
-	char buffer[1024];
+	size_t buffer_size = 32;
+	char *buffer;
+	buffer = malloc(buffer_size * sizeof(char));
+	if (buffer == NULL) {
+		fprintf(stderr, "cannot allocate memory\n");
+		exit(1);
+	}
+
 	buffer[0] = c;
 	size_t i;
-	for (i = 1; (isalnum(c = lexer_getc()) || c == '_') && i < sizeof(buffer) - 1; ++i) {
+	c = lexer_getc();
+	for (i = 1; isalnum(c) || c == '_'; ++i) {
 		buffer[i] = c;
+		if (i >= buffer_size) {
+			buffer = realloc(buffer, sizeof(char) * (buffer_size *= 2));
+			if (buffer == NULL) {
+				fprintf(stderr, "cannot allocate memory\n");
+				exit(1);
+			}
+		}
+		c = lexer_getc();
 	}
 	buffer[i] = '\0';
 	lexer_seekback(); // from stdio.h
 
-	/* check whether this is identifier */
+	/* check which this is, identifier or keyword */
 	get_keyword(&t, buffer);
+
+	if (t.type == ID) {
+		t.str = buffer;
+		strlist->push_front(strlist, t.str);
+	} else {
+		free(buffer);
+	}
 
 	lexer_push(t);
 }

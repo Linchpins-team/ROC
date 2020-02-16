@@ -22,7 +22,7 @@ static void panic(const char *msg)
 #undef RESET
 
 
-ast_t *new_node(enum asttype type, ast_t *parent)
+ast_t *new_node(enum asttype type, ast_t *parent, size_t dline, size_t dcolumn)
 {
 	ast_t *ptr = (ast_t *)calloc(1, sizeof(ast_t));
 	if (ptr == NULL) {
@@ -40,6 +40,8 @@ ast_t *new_node(enum asttype type, ast_t *parent)
 
 	/* Setup Son Node */
 	ptr->type = type;
+	ptr->dline = dline;
+	ptr->dcolumn = dcolumn;
 	ptr->son_array_size = 0;
 	ptr->son_array = NULL;
 	ptr->son_count = 0;
@@ -96,4 +98,36 @@ void remove_ast(ast_t *parent)
 	}
 	free(parent->son_array);
 	free(parent);
+}
+
+int exist_ast(ast_t *parent, enum asttype type)
+{
+	if (parent == NULL) {
+		return 0;
+	}
+	if (parent->type == type) {
+		return 1;
+	}
+
+	for (size_t i = 0; i < parent->son_count; ++i) {
+		if (exist_ast(parent->son_array[i], type)) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+void iterate_type_ast(ast_t *parent, enum asttype type, void (*func)(struct ast_node *))
+{
+	if (parent == NULL) {
+		return;
+	}
+
+	if (parent->type == type) {
+		func(parent);
+	}
+
+	for (size_t i = 0; i < parent->son_count; ++i) {
+		iterate_type_ast(parent->son_array[i], type, func);
+	}
 }

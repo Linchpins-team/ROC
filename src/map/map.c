@@ -147,7 +147,7 @@ rb_search_node(map_t m, unsigned int key)
 			nd = nd->right;
 		}
 	}
-	return nd;
+	return nd == m->nil ? NULL : nd;
 }
 
 static struct map_node *
@@ -300,13 +300,17 @@ static void rb_delete(map_t m, unsigned int key)
 static void *
 rb_search(map_t m, unsigned int key)
 {
-	return rb_search_node(m, key)->value;
+	struct map_node * nd = rb_search_node(m, key);
+	if (nd == NULL) {
+		return NULL;
+	}
+	return nd->value;
 }
 
 static int
 rb_exist(map_t m, unsigned int key)
 {
-	return rb_search_node(m, key) != m->nil;
+	return rb_search_node(m, key) != NULL;
 }
 
 void init_map(map_t *m)
