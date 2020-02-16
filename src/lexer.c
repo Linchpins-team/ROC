@@ -177,18 +177,6 @@ static void lexer_push(token_t t)
 	gl_queue->push(gl_queue, t);
 }
 
-static unsigned int hash(const char *s)
-{
-	unsigned int seed, hash;
-	seed = 131;
-	hash = 0;
-
-	while (*s) {
-		hash = hash * seed + *s++;
-	}
-	return hash & 0x7FFFFFFFU;
-}
-
 static void jump_block_comment(void)
 {
 	int c = lexer_getc();
