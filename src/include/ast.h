@@ -87,8 +87,8 @@ enum asttype {
 		AS_INIT_DECL_LIST,
 		AS_INIT_DECL,
 		AS_DECL_PTR,
-		AS_DECL_CONST_PTR,
-/* 85 */	AS_DECL_VOLATILE_PTR,
+		AS_DECL_CONST_PTR, /* deprecated */
+/* 85 */	AS_DECL_VOLATILE_PTR, /* deprecated */
 		AS_DECL_PARA_TYPE_LIST_VLEN,
 		AS_DECL_PARA_TYPE_LIST_NORM,
 		AS_PARA_LIST,
@@ -132,6 +132,7 @@ enum asttype {
 		AS_UINT_LIT,
 		AS_ULONG_LIT,
 		AS_LONG_LIT,
+		AS_TYPE_QUALIFIER_LIST,
 };
 
 typedef struct ast_node {

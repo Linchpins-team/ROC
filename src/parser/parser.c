@@ -2,7 +2,6 @@
 #include "queue.h"
 #include "lexer.h"
 #include "ast.h"
-#include "map.h"
 #include "map_stack.h"
 
 #include <stdio.h>
@@ -177,7 +176,7 @@
 				NIL
 	direct-declarator = identifier direct-declarator-rest | '(' declarator ')' direct-declarator-rest
 
-	pointer = '*' type-qualifier(opt) | '*' type-qualifier(opt) pointer
+	pointer = '*' type-qualifier-list | '*' type-qualifier-list pointer
 
 	parameter-type-list = parameter-list | parameter-list ', ...';
 
@@ -1438,23 +1437,54 @@ static ast_t *parameter_type_list(void)
 	}
 }
 
-static ast_t *pointer(void)
+static ast_t *type_qualifier(void)
 {
-	ast_t *node;
-	match_and_pop(MUL);
 	switch (gl_queue->back(gl_queue).type) {
 	case K_CONST:
 		match_and_pop(K_CONST);
-		node = new_node(AS_DECL_CONST_PTR, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
-		break;
+		return new_node(AS_DECL_CONST, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	case K_VOLATILE:
 		match_and_pop(K_VOLATILE);
-		node = new_node(AS_DECL_VOLATILE_PTR, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
-		break;
+		return new_node(AS_DECL_VOLATILE, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	default:
-		node = new_node(AS_DECL_PTR, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		return NULL;
+	}
+}
+
+static ast_t *type_qualifier_list_rest(ast_t *tt)
+{
+	ast_t *node;
+	switch (gl_queue->back(gl_queue).type) {
+	case K_CONST:
+	case K_VOLATILE:
+		node = new_node(AS_TYPE_QUALIFIER_LIST, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		add_son(node, tt);
+		add_son(node, type_qualifier());
+		return type_qualifier_list_rest(node);
+	default:
+		return tt;
+	}
+}
+
+static ast_t *type_qualifier_list(void)
+{
+	ast_t *node = new_node(AS_TYPE_QUALIFIER_LIST, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+	add_son(node, type_qualifier());
+	return type_qualifier_list_rest(node);
+}
+
+static ast_t *pointer(void)
+{
+	ast_t *node = new_node(AS_DECL_PTR, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+	match_and_pop(MUL);
+	switch (gl_queue->back(gl_queue).type) {
+	case K_CONST:
+	case K_VOLATILE:
+		add_son(node, type_qualifier_list());
+	default:
 		break;
 	}
+
 	if (gl_queue->back(gl_queue).type == MUL) {
 		return add_son(node, pointer());
 	} else {
