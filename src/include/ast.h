@@ -168,6 +168,12 @@ int exist_ast(ast_t *parent, enum asttype type);
 
 void iterate_type_ast(ast_t *parent, enum asttype type, void (*func)(struct ast_node *));
 
+void iterate_type_ast_under_type(ast_t *parent, enum asttype type, enum asttype under, void (*func)(struct ast_node *));
+
+void iterate_type_ast_not_enter_type(ast_t *parent, enum asttype type, enum asttype not_enter, void (*func)(struct ast_node *));
+
+void iterate_type_ast_not_enter2_types(ast_t *parent, enum asttype type, enum asttype not_enter1, enum asttype not_enter2, void (*func)(struct ast_node *));
+
 /* Remove all nodes */
 void remove_ast(ast_t *parent);
 #endif // AST_H_

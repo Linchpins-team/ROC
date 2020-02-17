@@ -8,6 +8,7 @@
 #include <ctype.h>
 
 FILE *source;
+char const *source_filename;
 
 static size_t line;
 static size_t column;
@@ -138,6 +139,15 @@ void print_token(enum token t)
 	fprintf(stdout, "%s", token_str[t]);
 }
 
+void print_token_indicater(enum token t)
+{
+	size_t sz = strlen(token_str[t]) - 1;
+	fputc('^', stdout);
+	for (size_t i = 0; i < sz; ++i) {
+		fputc('~', stdout);
+	}
+}
+
 void print_token_underline(enum token t)
 {
 	size_t sz = strlen(token_str[t]);
@@ -152,14 +162,14 @@ void print_token_underline(enum token t)
 
 static void panic(const char *msg)
 {
-	fprintf(stdout, "lexer:%zu:%zu: " RED "error" RESET ": %s\n ",
-		token_line, token_column, msg);
+	fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": %s\n ",
+		source_filename, token_line, token_column, msg);
 
 	print_line(token_line);
 	fprintf(stdout, "\n ");
 
 	shift_line(token_line, token_column);
-	fprintf(stdout, RED "^~~~~~~~~~~~~~~\n " GREEN);
+	fprintf(stdout, RED "^\n " GREEN);
 	shift_line(token_line, token_column);
 
 	fprintf(stdout, "%s\n" RESET, msg);
@@ -998,6 +1008,42 @@ void next(void)
 	}
 }
 
+
+/* return last line with token */
+size_t check_line_prev(size_t line, size_t column)
+{
+	long int cur = ftell(source);
+	fseek(source, 0, SEEK_SET);
+
+	size_t cur_line = 1;
+	int c;
+	size_t line_prev;
+
+	if (line > 1) {
+		while ((c = fgetc(source)) != -1) {
+			if (c == '\n') {
+				++cur_line;
+			}
+			if (!isspace(c)) {
+				line_prev = cur_line;
+			}
+			if (cur_line == line) {
+				break;
+			}
+		}
+	}
+
+	size_t cur_column;
+	for (cur_column = 1; cur_column < column; ++cur_column) {
+		c = fgetc(source);
+		if (!isspace(c)) {
+			line_prev = cur_line;
+		}
+	}
+	fseek(source, cur, SEEK_SET);
+	return line_prev;
+}
+
 void print_line(size_t line)
 {
 	long int cur = ftell(source);
@@ -1020,6 +1066,37 @@ void print_line(size_t line)
 	}
 	fseek(source, cur, SEEK_SET);
 }
+
+void shift_end(size_t line)
+{
+	long int cur = ftell(source);
+	fseek(source, 0, SEEK_SET);
+	size_t cur_line = 1;
+
+	int c;
+	if (line > 1) {
+		while ((c = fgetc(source)) != -1) {
+			if (c == '\n') {
+				++cur_line;
+			}
+			if (cur_line == line) {
+				break;
+			}
+		}
+	}
+
+	size_t cur_column = 1;
+	while ((c = fgetc(source)) != -1 && c != '\n') {
+		if (c == '\t') {
+			fputc(c, stdout);
+		} else {
+			fputc(' ', stdout);
+		}
+		++cur_column;
+	}
+	fseek(source, cur, SEEK_SET);
+}
+
 
 void shift_line(size_t line, size_t column)
 {

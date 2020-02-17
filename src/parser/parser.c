@@ -252,11 +252,12 @@
 #define GREEN "\x1b[;32;1m"
 #define RED "\x1b[;31;1m"
 #define CYAN "\x1b[;36;1m"
+#define YELLOW "\x1b[;93;1m"
 #define RESET "\x1b[0m"
 
 static void panic(const char *msg)
 {
-	fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": %s\n ",
+	fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": %s\n ", source_filename,
 		gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column, msg);
 
 	print_line(gl_queue->back(gl_queue).line);
@@ -274,27 +275,101 @@ static void panic(const char *msg)
 	exit(1);
 }
 
-static int match_and_pop(enum token c)
+static void print_line_number(size_t line)
+{
+	fprintf(stdout, YELLOW "%4zu | " RESET, line);
+}
+
+static void print_line_start(void)
+{
+	fprintf(stdout, YELLOW "     | " RESET);
+}
+
+static int match_and_pop_back(enum token c)
 {
 	if (gl_queue->back(gl_queue).type != c) {
-		fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": expected \"",
-			gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		size_t line = gl_queue->back(gl_queue).line;
+		size_t column = gl_queue->back(gl_queue).column;
+		fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": expected \"",
+			source_filename, line, column);
 		print_token(c);
 		fprintf(stdout, "\" before \"");
 		print_token(gl_queue->back(gl_queue).type);
-		fprintf(stdout, "\"\n ");
+		fprintf(stdout, "\"\n");
 
+		size_t prev = check_line_prev(line, column);
+		if (prev != line) {
+			print_line_number(prev);
+			print_line(prev);
+			fprintf(stdout, "\n");
+			print_line_start();
+			shift_end(prev);
+			fprintf(stdout, RED "^" RESET);
+			fprintf(stdout, "\n");
+			print_line_start();
+			shift_end(prev);
+			fprintf(stdout, GREEN);
+			print_token(c);
+			fprintf(stdout, "\n" RESET);
+
+			print_line_number(line);
+			print_line(line);
+			fprintf(stdout, "\n");
+			print_line_start();
+			fprintf(stdout, RED);
+	
+			shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+			print_token_underline(gl_queue->back(gl_queue).type);
+			fprintf(stdout, "\n" RESET);
+		} else {
+			print_line_number(line);
+			print_line(line);
+			fprintf(stdout, "\n");
+	
+			print_line_start();
+			fprintf(stdout, RED);
+			shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+			print_token_indicater(gl_queue->back(gl_queue).type);
+			fprintf(stdout, "\n" RESET);
+
+			print_line_start();
+			fprintf(stdout, GREEN);
+			shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column-1);
+			print_token(c);
+
+			fprintf(stdout, "\n" RESET);
+		}
+		exit(1);
+	}
+	gl_queue->pop(gl_queue);
+	next();
+	return 0;
+}
+
+static int match_and_pop(enum token c)
+{
+	if (gl_queue->back(gl_queue).type != c) {
+		fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": expected \"",
+			source_filename, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		print_token(c);
+		fprintf(stdout, "\" before \"");
+		print_token(gl_queue->back(gl_queue).type);
+		fprintf(stdout, "\"\n");
+
+		print_line_number(gl_queue->back(gl_queue).line);
 		print_line(gl_queue->back(gl_queue).line);
-		fprintf(stdout, "\n ");
+		fprintf(stdout, "\n" RED);
 
+		print_line_start();
 		shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
-		fprintf(stdout, RED "\b^" GREEN);
-		print_token_underline(gl_queue->back(gl_queue).type);
-		fprintf(stdout, "\n ");
+		fprintf(stdout, RED);
+		print_token_indicater(gl_queue->back(gl_queue).type);
+		fprintf(stdout, "\n" RESET);
 
-		shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
+		print_line_start();
+		fprintf(stdout, GREEN);
+		shift_line(gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column - 1);
 
-		fprintf(stdout, "\b");
 		print_token(c);
 		fprintf(stdout, "\n" RESET);
 		exit(1);
@@ -333,30 +408,37 @@ static void print_underline(size_t time)
 
 static void panic_redefine(struct ast_node *nd, struct identifier *v)
 {
-	fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": %s was redeclared.\n ",
-		nd->dline, nd->dcolumn, v->name);
+	fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": %s was redeclared.\n",
+		source_filename, nd->dline, nd->dcolumn, v->name);
 
+	print_line_number(nd->dline);
 	print_line(nd->dline);
-	fprintf(stdout, "\n " RED);
+	fprintf(stdout, "\n");
 
+	print_line_start();
+	fprintf(stdout, RED);
 	shift_line(nd->dline, nd->dcolumn);
-	print_underline(strlen(v->name));
+	fprintf(stdout, "^" RED);
+	print_underline(strlen(v->name)-1);
 
-	fprintf(stdout, RESET "\nparser:%zu:%zu: " CYAN "note" RESET ": %s was declared here.\n ",
-		v->dline, v->dcolumn, v->name);
+	fprintf(stdout, RESET "\n%s:%zu:%zu: " CYAN "note" RESET ": %s was declared here.\n",
+		source_filename, v->dline, v->dcolumn, v->name);
+	print_line_number(v->dline);
 	print_line(v->dline);
-	fprintf(stdout, "\n " RED);
+	fprintf(stdout, "\n");
 
+	print_line_start();
 	shift_line(v->dline, v->dcolumn);
-	print_underline(strlen(v->name));
+	fprintf(stdout, RED "^");
+	print_underline(strlen(v->name)-1);
 	fprintf(stdout, "\n" RESET);
 	exit(1);
 }
 
 static void panic_not_typedef_name(const char *name)
 {
-	fprintf(stdout, "parser:%zu:%zu: " RED "error" RESET ": %s is not a typename.\n ",
-		gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column, name);
+	fprintf(stdout, "%s:%zu:%zu: " RED "error" RESET ": %s is not a typename.\n ",
+		source_filename, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column, name);
 
 	print_line(gl_queue->back(gl_queue).line);
 	fprintf(stdout, "\n " RED);
@@ -1544,7 +1626,7 @@ static ast_t *struct_declaration(void)
 	ast_t *node = new_node(AS_STRUCT_DECLARATION, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	add_son(node, specifier_qualifier_list());
 	add_son(node, struct_declarator_list());
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1742,13 +1824,13 @@ static ast_t *declaration(void)
 	case L_PARA:
 		add_son(node, init_decl_list());
 		if (exist_ast(node->son_array[0], AS_DECL_TYPEDEF)) {
-			iterate_type_ast(node->son_array[1], AS_ID, insert_id);
+			iterate_type_ast_not_enter2_types(node->son_array[1], AS_ID, AS_PARA_LIST, AS_ID_LIST, insert_id);
 		}
 		break;
 	default:
 		break;
 	}
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1764,7 +1846,7 @@ static ast_t *goto_jump(void)
 	ast_t *node = new_node(AS_JUMP_GOTO, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	match_and_pop(K_GOTO);
 	add_son(node, identifier());
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1772,7 +1854,7 @@ static ast_t *continue_jump(void)
 {
 	ast_t *node = new_node(AS_JUMP_CONTINUE, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	match_and_pop(K_CONTINUE);
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1780,7 +1862,7 @@ static ast_t *break_jump(void)
 {
 	ast_t *node = new_node(AS_JUMP_BREAK, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 	match_and_pop(K_BREAK);
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1791,7 +1873,7 @@ static ast_t *return_jump(void)
 	if (gl_queue->back(gl_queue).type != SEMI) {
 		add_son(node, expr());
 	}
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1816,7 +1898,7 @@ static ast_t *do_while_iter(void)
 	match_and_pop(L_PARA);
 	add_son(node, expr());
 	match_and_pop(R_PARA);
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	return node;
 }
 
@@ -1828,11 +1910,11 @@ static ast_t *for_iter(void)
 	if (gl_queue->back(gl_queue).type != SEMI) {
 		add_son(node, expr());
 	}
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	if (gl_queue->back(gl_queue).type != SEMI) {
 		add_son(node, expr());
 	}
-	match_and_pop(SEMI);
+	match_and_pop_back(SEMI);
 	if (gl_queue->back(gl_queue).type != R_PARA) {
 		add_son(node, expr());
 	}
@@ -1958,12 +2040,12 @@ static ast_t *expr_state(void)
 	ast_t *node;
 	switch (gl_queue->back(gl_queue).type) {
 	case SEMI:
-		match_and_pop(SEMI);
+		match_and_pop_back(SEMI);
 		node = new_node(AS_EXPR_NULL, NULL, gl_queue->back(gl_queue).line, gl_queue->back(gl_queue).column);
 		return node;
 	default:
 		node = expr();
-		match_and_pop(SEMI);
+		match_and_pop_back(SEMI);
 		return node;
 	}
 }

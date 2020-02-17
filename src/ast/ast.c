@@ -131,3 +131,56 @@ void iterate_type_ast(ast_t *parent, enum asttype type, void (*func)(struct ast_
 		iterate_type_ast(parent->son_array[i], type, func);
 	}
 }
+
+void iterate_type_ast_under_type(ast_t *parent, enum asttype type, enum asttype under, void (*func)(struct ast_node *))
+{
+	if (parent == NULL) {
+		return;
+	}
+
+	if (parent->parent != NULL) {
+		if (parent->parent->type == type) {
+			if (parent->type == type) {
+				func(parent);
+			}
+		}
+	}
+
+	for (size_t i = 0; i < parent->son_count; ++i) {
+		iterate_type_ast_under_type(parent->son_array[i], type, under, func);
+	}
+}
+
+void iterate_type_ast_not_enter_type(ast_t *parent, enum asttype type, enum asttype not_enter, void (*func)(struct ast_node *))
+{
+	if (parent == NULL) {
+		return;
+	}
+
+	if (parent->type == type) {
+		func(parent);
+	}
+
+	if (parent->type != not_enter) {
+		for (size_t i = 0; i < parent->son_count; ++i) {
+			iterate_type_ast_not_enter_type(parent->son_array[i], type, not_enter, func);
+		}
+	}
+}
+
+void iterate_type_ast_not_enter2_types(ast_t *parent, enum asttype type, enum asttype not_enter1, enum asttype not_enter2, void (*func)(struct ast_node *))
+{
+	if (parent == NULL) {
+		return;
+	}
+
+	if (parent->type == type) {
+		func(parent);
+	}
+
+	if (parent->type != not_enter1 && parent->type != not_enter2) {
+		for (size_t i = 0; i < parent->son_count; ++i) {
+			iterate_type_ast_not_enter2_types(parent->son_array[i], type, not_enter1, not_enter2, func);
+		}
+	}
+}

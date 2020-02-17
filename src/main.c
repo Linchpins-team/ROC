@@ -49,6 +49,7 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	source_filename = argv[1];
 	source = fopen(argv[1], "r");
 	if (source == (void *)0) {
 		panic(strerror(errno));
